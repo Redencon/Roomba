@@ -9,6 +9,8 @@ import plotly.express as px
 import json
 import datetime as dtt
 import re
+from sendemail import send_email
+from sql import DatabaseManager
 
 # Configuration
 PASSWORD = "your_password"
@@ -17,10 +19,11 @@ SECRET_KEY = "your_secret_key"
 server = flask.Flask(__name__)
 server.secret_key = "MyNameIsNotDiana"
 GOOGLE = "https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
-app = Dash(__name__, server=server, external_stylesheets=[dbc.themes.BOOTSTRAP, GOOGLE, "static/style.css"], routes_pathname_prefix='/dash/')
-
-with open("data/events.json", "r", encoding='utf-8') as f:
-    EVENTS = json.load(f)
+application = Dash(__name__, server=server, external_stylesheets=[dbc.themes.BOOTSTRAP, GOOGLE, "static/style.css"], routes_pathname_prefix='/dash/')
+with open("keys/SQL") as f:
+    sql_username, sql_password = f.read().splitlines()
+sql_url = f"mysql+pymysql://{sql_username}:{sql_password}@"
+dbm = DatabaseManager("sqlite:///passwords.db")
 
 WEEKDAYS = {
     "1": "Monday",
@@ -47,32 +50,50 @@ BUILDINGS = [
     'ГК', 'Квант', 'КПМ', 'Цифра', 'БК', 'УПМ', 'None'
 ]
 
-def filter_data_for_day(data, selected_date):
-    df = pd.DataFrame(data)
-    df["description"] = df["description"].str.split(r"\s*//\s*")
-    df = df.explode("description")
-    df['building'] = df['audience_number'].apply(lambda x: x.split()[1])
-    df['room'] = df['audience_number'].apply(lambda x: x.split()[0])
-    room_order = sorted(df["room"].unique())
-    df['room'] = pd.Categorical(df['room'], categories=room_order, ordered=True)
-    df[['day', 'time']] = df['pair'].apply(lambda d: pd.Series(d['name'].split()[1:]))
-    df['day'] = df['day'].astype(int)
-    df[['time_start', 'time_finish']] = df['time'].apply(lambda x: pd.Series(TIME_SLOTS[x]))
-    df[['stime', 'ftime']] = df[['time_start', 'time_finish']]
-    df['time_start'] = pd.to_datetime(df['time_start'], format='%H:%M')
-    df['time_finish'] = pd.to_datetime(df['time_finish'], format='%H:%M')
-    selected_date = dtt.datetime.strptime(selected_date, '%Y-%m-%d')
+# def filter_data_for_day(data, selected_date):
+#     df = pd.DataFrame(data)
+#     df["description"] = df["description"].str.split(r"\s*//\s*")
+#     df = df.explode("description")
+#     df['building'] = df['audience_number'].apply(lambda x: x.split()[1])
+#     df['room'] = df['audience_number'].apply(lambda x: x.split()[0])
+#     room_order = sorted(df["room"].unique())
+#     df['room'] = pd.Categorical(df['room'], categories=room_order, ordered=True)
+#     df[['day', 'time']] = df['pair'].apply(lambda d: pd.Series(d['name'].split()[1:]))
+#     df['day'] = df['day'].astype(int)
+#     df[['time_start', 'time_finish']] = df['time'].apply(lambda x: pd.Series(TIME_SLOTS[x]))
+#     df[['stime', 'ftime']] = df[['time_start', 'time_finish']]
+#     df['time_start'] = pd.to_datetime(df['time_start'], format='%H:%M')
+#     df['time_finish'] = pd.to_datetime(df['time_finish'], format='%H:%M')
+#     selected_date = dtt.datetime.strptime(selected_date, '%Y-%m-%d')
+#     pattern = re.compile(r"\d{2}\.\d{2}")
+#     def is_not_weekly(description, date):
+#         dates = re.findall(pattern, description)
+#         if not dates:
+#             return True
+#         return date.strftime('%d.%m') in dates
+#     df = df[df['description'].apply(lambda x: is_not_weekly(x, selected_date))]
+#     weekday = selected_date.weekday()+1
+#     filtered_df = df[(df['day'] == weekday)]
+    
+#     return filtered_df
+
+def filter_events(events, date):
+    date_proper = dtt.datetime.strptime(date, '%Y-%m-%d').strftime('%d.%m')
     pattern = re.compile(r"\d{2}\.\d{2}")
     def is_not_weekly(description, date):
         dates = re.findall(pattern, description)
         if not dates:
             return True
-        return date.strftime('%d.%m') in dates
-    df = df[df['description'].apply(lambda x: is_not_weekly(x, selected_date))]
-    weekday = selected_date.weekday()+1
-    filtered_df = df[(df['day'] == weekday)]
-    
-    return filtered_df
+        return date in dates
+    df = pd.DataFrame([
+        {'description': event['description'], 'building': event['building'], 'room': event['room'], 'time_start': event['time_start'], 'time_finish': event['time_finish']}
+        for event in events 
+        if is_not_weekly(event["description"], date_proper)
+    ])
+    df[['stime', 'ftime']] = df[['time_start', 'time_finish']]
+    df['time_start'] = pd.to_datetime(df['time_start'], format='%H:%M')
+    df['time_finish'] = pd.to_datetime(df['time_finish'], format='%H:%M')
+    return df
 
 NULL_PLOT = {"layout": {
     "xaxis": {"visible": False},
@@ -129,6 +150,7 @@ def generate_gantt_chart(df, building, is_today=False):
         fig.add_vline(x=finish, line=dict(color="gray", dash="dash", width=1))
     return fig
 
+
 for building in BUILDINGS:
     @callback(
         Output(f'gantt-chart-{building}', 'figure'),
@@ -136,7 +158,8 @@ for building in BUILDINGS:
         Input('interval', 'n_intervals')
     )
     def update_gantt_charts(selected_date, _, building=building):
-        filtered_df = filter_data_for_day(EVENTS, selected_date)
+        events = dbm.get_events(selected_date)
+        filtered_df = filter_events(events, selected_date)
         fig = generate_gantt_chart(filtered_df, building, selected_date == pd.to_datetime('today').strftime('%Y-%m-%d'))
         return fig
 
@@ -146,8 +169,8 @@ for building in BUILDINGS:
 )
 def add_scripts(*_):
     return [
-        html.Script(src=app.get_asset_url("js/bootstrap.bundle.min.js")),
-        html.Script(src=app.get_asset_url("collapse.js")),
+        html.Script(src=application.get_asset_url("js/bootstrap.bundle.min.js")),
+        html.Script(src=application.get_asset_url("collapse.js")),
     ]
 
 # @app.callback(
@@ -164,7 +187,7 @@ def add_scripts(*_):
 #     is_open = args[len(BUILDINGS) + BUILDINGS.index(building)]['is_open']
 #     return [not is_open if f"group-{building}-toggle" == button_id else is_open for building in BUILDINGS]
 
-app.layout = html.Div([
+application.layout = html.Div([
     html.Div(
             html.Header("Roomba", id="main_header"),
             className="header-fullwidth"
@@ -225,26 +248,34 @@ def login():
 @server.route('/request-password', methods=['GET', 'POST'])
 def request_password():
     if request.method == 'POST':
-        email = request.form.get('email')
-        unique_password = secrets.token_urlsafe(16)
-        # Save the unique password for the user (e.g., in a database or a file)
-        # For simplicity, we'll just print it here
-        print(f"Generated password for {email}: {unique_password}")
-        # send_email(email, unique_password)
+        if 'last_request' in session:
+            last_request = session['last_request']
+            now = dtt.datetime.now()
+            if (now - last_request).total_seconds() < 60:  # Limit to 1 request per minute
+                return flask.make_response("Too many requests. Please try again later.", 429)
+        
+        address = request.form.get('email')
+        if "@" not in address:
+            return flask.make_response("Invalid email", 400)
+        
+        password = dbm.generate_password()
+        send_email(address, password)
+        
+        session['last_request'] = dtt.datetime.now()
         return redirect(url_for('login'))
     return render_template('request_password.html')
 
 @server.route('/')
 def index():
     if session.get('token') == SECRET_KEY:
-        return app.index()
-    return redirect(url_for('login'))
+        return application.index()
+    return redirect(url_for('request_password'))
 
-@app.server.before_request
+@application.server.before_request
 def before_request():
     if request.path.startswith('/dash') and session.get('token') != SECRET_KEY:
-        return redirect(url_for('login'))
+        return redirect(url_for('request_password'))
 
 # Run the app
 if __name__ == '__main__':
-    app.run()
+    application.run()
