@@ -1,0 +1,7 @@
+<div class="field col-12 col-sm-8 col-md-5" align="left">
+<%= f.label :Email %><br />
+</div>
+<div class="input-group field col-12 col-sm-8 col-md-5">
+<%= f.text_field :email, class: "input-group-addon", pattern: "[A-Za-z0-9]{1,20}", aria: { describedby: "basic-addon2"}, autofocus: true, :required => true %>
+<span class="input-group-addon" id="basic-addon2">@naver.com</span>
+</div><br/>
