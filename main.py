@@ -14,7 +14,7 @@ import json
 import datetime as dtt
 import re
 from sendemail import send_email
-from sql import DatabaseManager, Events, Passwords
+from sql import DatabaseManager, Events, Passwords, WEEKDAYS
 # import logging
 
 # Configuration
@@ -38,16 +38,6 @@ dbm = DatabaseManager(server)
 
 IS_DEBUG = False
 SEARCH_RESULT_LIMIT = 25
-
-WEEKDAYS = {
-    1: "ПН",
-    2: "ВТ",
-    3: "СР",
-    4: "ЧТ",
-    5: "ПТ",
-    6: "СБ",
-    7: "ВС",
-}
 
 TIME_SLOTS = [
     ("09:00", "10:25"),
@@ -245,25 +235,12 @@ def search_events(query: str):
         return []
     events = dbm.get_events_by_query(query)[:SEARCH_RESULT_LIMIT]
     
-    # remove unweekly events that have already passed
-    today = dtt.datetime.now()
-    pattern = re.compile(r"\d{2}\.\d{2}")
-    passed: "list[Events]" = []
-    for event in events:
-        dates = re.findall(pattern, event.description)
-        if not dates:
-            passed.append(event)
-            continue
-        maxdate = max([dtt.datetime.strptime(date, '%d.%m') for date in dates])
-        if maxdate >= today:
-            passed.append(event)
-            
     return [
         dbc.Card([
             dbc.CardHeader(" ".join([WEEKDAYS[event.day],"|",event.time_start,"-",event.time_finish,"|",event.building,event.room])),
             dbc.CardBody(event.description)
         ])
-        for event in passed
+        for event in events
     ]
 
 

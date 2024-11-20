@@ -5,7 +5,18 @@ from secrets import token_urlsafe
 from hashlib import sha256
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
+import re
 
+
+WEEKDAYS = {
+    1: "ПН",
+    2: "ВТ",
+    3: "СР",
+    4: "ЧТ",
+    5: "ПТ",
+    6: "СБ",
+    7: "ВС",
+}
 
 class Base(DeclarativeBase):
     pass
@@ -87,13 +98,33 @@ class DatabaseManager:
         all_events: "list[Events]" = db.session.scalars(select(Events)).all()
         res: "list[Events]" = []
         for event in all_events:
-            events_word_set = (
-                set([w.lower() for w in event.description.split()])
-                | set([w.lower() for w in event.room.split()])
-                | set([w.lower() for w in event.building.split()])
-                | set([event.building.lower()+event.room.lower()])
+            events_word_set = set([w.lower() for w in event.description.split()]
+                + [
+                    event.building.lower(), event.room.lower(), event.description.lower(),
+                    event.building.lower()+event.room.lower(),
+                    event.room.lower()+event.building.lower(),
+                ]
             )
+            pattern = re.compile(r"\d{2}\.\d{2}")
+            dates = re.findall(pattern, event.description)
+            if dates:
+                today = datetime.now()
+                dates_dtt = [datetime.strptime(date, '%d.%m') for date in dates if not date.startswith('00') and not date.endswith('00')]
+                if dates_dtt:
+                    maxdate = max(dates_dtt)
+                    if maxdate < today:
+                        continue
             query_word_set = set([w.lower() for w in query.split()])
+            start_time = datetime.strptime(event.time_start, '%H:%M')
+            finish_time = datetime.strptime(event.time_finish, '%H:%M')
+            time_mentions = re.findall(r'\d{1,2}:\d{2}', query)
+            for time_mention in time_mentions:
+                time_mention_dtt = datetime.strptime(time_mention, '%H:%M')
+                if start_time <= time_mention_dtt <= finish_time:
+                    query_word_set.add(event.time_start)
+                    events_word_set.add(event.time_start)
+                    break
+            events_word_set.add(WEEKDAYS[event.day].lower())
             if query_word_set & events_word_set or query.lower() in event.description.lower():
                 match_count = len(query_word_set & events_word_set)
                 res.append((event, match_count))
