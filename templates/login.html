@@ -8,6 +8,7 @@
     <meta name="author" content="Mark Otto, Jacob Thornton, and Bootstrap contributors">
     <meta name="generator" content="Hugo 0.122.0">
     <title>Signin - Roomba</title>
+    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
 
     <link rel="canonical" href="https://getbootstrap.com/docs/5.3/examples/sign-in/">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@docsearch/css@3">
@@ -22,21 +23,23 @@
     <link href="../static/sign-in.css" rel="stylesheet">
   </head>
   <body class="d-flex align-items-center py-4 bg-body-tertiary">
-    
-<main class="form-signin w-100 m-auto">
-  <form method="post">
-    <h1 class="h3 mb-3 fw-normal">Please sign in</h1>
+    <main class="form-signin w-100 m-auto">
+      <form method="post" id="login-form">
+        <img class="mb-4" src="../static/icon.png" alt="" width="80" height="80">
+        <h1 class="h3 mb-3 fw-normal">Введите свой пароль</h1>
+        {% if error %}
+        <div id="error-message" class="alert alert-danger">{{ error }}</div>
+        {% endif %}
 
-    <div class="form-floating">
-      <input type="password" class="form-control" id="password" placeholder="Password" name="password" required>
-      <label for="password">Password</label>
-    </div>
+        <div class="form-floating">
+          <input type="password" class="form-control" id="password" placeholder="Password" name="password" required>
+          <label for="password">Пароль</label>
+        </div>
 
-    <button class="button w-100 py-2 mb-4" type="submit">Sign in</button>
-  </form>
-  <p>Didn't get a password?<br><a href="/request-password">Request a new one</a></p>
-</main>
-<script src="../static/dist/js/bootstrap.bundle.min.js"></script>
-
-    </body>
+        <button class="button w-100 py-2 mb-4" type="submit">Войти</button>
+      </form>
+      <p>Не полуичли пароль?<br><a href="/request-password">Запросите новый</a></p>
+    </main>
+    <script src="../static/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
 </html>

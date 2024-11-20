@@ -7,6 +7,7 @@
     <meta name="description" content="">
     <meta name="author" content="Mark Otto, Jacob Thornton, and Bootstrap contributors">
     <meta name="generator" content="Hugo 0.122.0">
+    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
     <title>Request Access</title>
 
     <link rel="canonical" href="https://getbootstrap.com/docs/5.3/examples/sign-in/">
@@ -22,24 +23,27 @@
     <link href="../static/sign-in.css" rel="stylesheet">
   </head>
   <body class="d-flex align-items-center py-4 bg-body-tertiary">
-<main class="form-signin w-100 m-auto" style="max-width: 400px;">
-<form method="post">
-    <h1 class="h3 mb-3 fw-normal">Request access</h1>
+    <main class="form-signin w-100 m-auto" style="max-width: 400px;">
+      <form method="post" id="request-password-form">
+        <img class="mb-4" src="../static/icon.png" alt="" width="80" height="80">
+        <h1 class="h3 mb-3 fw-normal">Запросить доступ</h1>
+        {% if error %}
+        <div id="error-message" class="alert alert-danger">{{ error }}</div>
+        {% endif %}
 
-    <div class="form-floating">
-        <div class="input-group">
-            <input type="email" class="form-control" aria-describedby="validatedInputGroupPrepend" id="email" required placeholder="Email" name="email">
-            <div class="input-group-prepend">
-                <span class="input-group-text" id="validatedInputGroupPrepend">@phystech.edu</span>
+        <div class="form-floating">
+            <div class="input-group">
+                <input type="text" class="form-control" aria-describedby="validatedInputGroupPrepend" id="email" required placeholder="Email" name="email">
+                <div class="input-group-prepend">
+                    <span class="input-group-text" id="validatedInputGroupPrepend">@phystech.edu</span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <button class="button w-100 py-2 mb-4" type="submit">Request</button>
-  </form>
-  <p>Already have the code?<br><a href="/login">Enter it here.</a></p>
-</main>
-<script src="../static/dist/js/bootstrap.bundle.min.js"></script>
-
+        <button class="button w-100 py-2 mb-4" type="submit">Запросить</button>
+      </form>
+      <p>Уже есть пароль?<br><a href="/login">Введите его здесь.</a></p>
+    </main>
+    <script src="../static/dist/js/bootstrap.bundle.min.js"></script>
     </body>
 </html>

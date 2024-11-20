@@ -273,3 +273,18 @@ input {
     font-family: 'Montserrat';
     font-size: 16px;
 }
+
+.menu-toggle {
+    position: fixed;
+    top: 10px;
+    right: 40px;
+    background-color: #333;
+    color: white;
+    border: none;
+    padding: 5px 5px;
+    font-size: 16px;
+    width: 40px;
+    cursor: pointer;
+    z-index: 1000; /* Ensure it is above other elements */
+    border-radius: 3px;
+  }
