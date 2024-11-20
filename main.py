@@ -357,6 +357,9 @@ application.layout = html.Div([
         html.Br(),
         html.Div(id="search-results")
     ], id="search-offcanvas", scrollable=True, is_open=False, title="Поиск"),
+    html.Footer(dbc.Container(dbc.Row(dbc.Col(
+        html.Div(["Собрано ", html.A("Folegle", href="https://t.me/folegle")," - для ", html.A("МКИ (Студсовета МФТИ)", href="https://t.me/mki_mipt")], className="small m-0")
+    ), class_name="align-items-center justify-content-between flex-column flex-sm-row"), className="px-5"), className="bg-white py-1 mt-auto"),
     html.Div(id="scripts")
 ])
 
