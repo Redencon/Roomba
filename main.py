@@ -339,7 +339,6 @@ def login():
             response = redirect(url_for('index'))
             response.set_cookie('password', password, max_age=60*60*24)  # Store password in cookies for 30 days
             return response
-        print("Wrong password")
         return render_template('login.html', error="Неверный пароль. Попробуйте ещё раз.")
     return render_template('login.html')
 
@@ -348,7 +347,7 @@ def request_password():
     if request.method == 'POST':
         if 'last_request' in session:
             last_request = session['last_request']
-            now = dtt.datetime.now()
+            now = dtt.datetime.now(tz=last_request.tzinfo)
             if (now - last_request).total_seconds() < 60:  # Limit to 1 request per minute
                 return render_template("request-login.html", error="Слишком много запросов. Попробуйте позже.")
         
@@ -366,18 +365,18 @@ def request_password():
 
 @server.route('/')
 def index():
-    if dbm.check_password(request.cookies.get('password')) or IS_DEBUG:
+    if dbm.verify_password(request.cookies.get('password')) or IS_DEBUG:
         return application.index()
     return redirect(url_for('request_password'))
 
 @server.before_request
 def before_request():
-    if (request.path.startswith('/dash') and not dbm.check_password(request.cookies.get('password'))) and not IS_DEBUG:
+    if (request.path.startswith('/dash') and not dbm.verify_password(request.cookies.get('password'))) and not IS_DEBUG:
         return redirect(url_for('request_password'))
 
 @server.route('/check_events')
 def check_events():
-    if not dbm.check_password(request.cookies.get('password')):
+    if not dbm.verify_password(request.cookies.get('password')):
         return redirect(url_for('request_password'))
     events = dbm.get_events(dtt.datetime.now().strftime('%Y-%m-%d'))
     if not events:

@@ -28,6 +28,7 @@ class Passwords(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     password_hash: Mapped[str]
     expiration_date: Mapped[datetime]
+    used: Mapped[bool]
 
 
 class Events(db.Model):
@@ -41,7 +42,7 @@ class Events(db.Model):
 
 
 class DatabaseManager:
-    EXPIRY_PERIOD = timedelta(days=15)
+    EXPIRY_PERIOD = timedelta(days=1)
 
     def __init__(self, app: Flask):
         self.db = db
@@ -50,11 +51,27 @@ class DatabaseManager:
             db.create_all()
 
     def add_password(self, password: Passwords):
-        with Session(self.engine) as session:
-            session.add(password)
-            session.commit()
+        self.clear_expired_passwords()
+        self.db.session.add(password)
+        self.db.session.commit()
 
     def check_password(self, password: str):
+        if password is None:
+            return False
+        password_hash = sha256(password.encode()).hexdigest()
+        password_query = db.session.scalars(
+            select(Passwords)
+            .filter(Passwords.password_hash == password_hash)
+            .filter(Passwords.expiration_date > datetime.now())
+            .filter(Passwords.used != True)
+        ).one_or_none()
+        if password_query:
+            password_query.used = True
+            self.db.session.commit()
+            return True
+        return False
+
+    def verify_password(self, password: str):
         if password is None:
             return False
         password_hash = sha256(password.encode()).hexdigest()
@@ -69,10 +86,11 @@ class DatabaseManager:
 
     def generate_password(self):
         expiration_date = datetime.now() + self.EXPIRY_PERIOD
-        password = token_urlsafe(16)
+        password = token_urlsafe(6)
         password_hash = sha256(password.encode("utf-8")).hexdigest()
-        db.session.add(Passwords(password_hash=password_hash, expiration_date=expiration_date))
+        db.session.add(Passwords(password_hash=password_hash, expiration_date=expiration_date, used=False))
         db.session.commit()
+        print(password)
         return password
 
     def clear_expired_passwords(self):
