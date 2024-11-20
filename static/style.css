@@ -287,4 +287,30 @@ input {
     cursor: pointer;
     z-index: 1000; /* Ensure it is above other elements */
     border-radius: 3px;
-  }
+}
+
+.radio-group .form-check {
+    padding-left: 0;
+}
+
+.radio-group .btn-group > .form-check:not(:last-child) > .btn {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.radio-group .btn-group > .form-check:not(:first-child) > .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    margin-left: -1px;
+}
+
+.btn.active, .btn-check:checked + .btn{
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+}
+
+.btn-outline-primary {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}

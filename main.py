@@ -63,6 +63,7 @@ BUILDING_PALETTES = {
     'Арктика': ["#8C7EB8", "#AB9AE0", "#675D87"],
     'БК': ["#87B145", "#A6D854", "#678734"],
     'УПМ': ["#AF447F", "#E057A2", "#7F315C"],
+    'Roomba': ["#06826A", "#3A1771", "#24C1A4", "#4B44C5"]
 }
 
 # def filter_data_for_day(data, selected_date):
@@ -132,7 +133,7 @@ NULL_PLOT = {"layout": {
     }]
 }}
 
-def generate_gantt_charts(df, building, is_today=False):
+def generate_gantt_charts(df, building, is_today=False, theme="navy"):
     df = df[df['building'] == building]
     if df.empty:
         return NULL_PLOT
@@ -165,7 +166,7 @@ def generate_gantt_charts(df, building, is_today=False):
                     color="room",
                     custom_data=["description", "stime", "ftime"],
                     labels={"room": "Room"},
-                    color_discrete_sequence=BUILDING_PALETTES[building],
+                    color_discrete_sequence=(BUILDING_PALETTES[building] if theme == "navy" else BUILDING_PALETTES["Roomba"]),
                     range_x=[dtt.datetime.strptime("08:30", '%H:%M'), dtt.datetime.strptime("22:30", '%H:%M')],
                 )
                 ticktext = [slot[0] for slot in TIME_SLOTS] + [TIME_SLOTS[-1][1]]
@@ -207,12 +208,13 @@ for building in BUILDINGS:
     @callback(
         Output(f'gantt-chart-{building}', 'children'),
         Input('date-picker', 'date'),
-        Input('interval', 'n_intervals')
+        Input('interval', 'n_intervals'),
+        Input('theme-switch', 'value')
     )
-    def update_gantt_charts(selected_date, _, building=building):
+    def update_gantt_charts(selected_date, _, theme, building=building):
         events = dbm.get_events(selected_date)
         filtered_df = filter_events(events, selected_date)
-        charts = generate_gantt_charts(filtered_df, building, selected_date == pd.to_datetime('today').strftime('%Y-%m-%d'))
+        charts = generate_gantt_charts(filtered_df, building, selected_date == pd.to_datetime('today').strftime('%Y-%m-%d'), theme)
         return charts
 
 @callback(
@@ -252,6 +254,15 @@ def search_events(query: str):
 def open_search(n_clicks):
     return True
 
+@callback(
+    [Output("card-header-"+building, "style") for building in BUILDINGS],
+    Input("theme-switch", "value")
+)
+def change_theme(theme):
+    if theme == "navy":
+        return [{"background-color": BUILDING_PALETTES[building][0]} for building in BUILDINGS]
+    return [{"background-color": BUILDING_PALETTES["Roomba"][i % 2]} for i, _ in enumerate(BUILDINGS)]
+
 # @app.callback(
 #     [Output(f"collapse-{building}", "is_open") for building in BUILDINGS],
 #     [Input(f"group-{building}-toggle", "n_clicks") for building in BUILDINGS],
@@ -273,17 +284,35 @@ application.layout = html.Div([
         ),
     dbc.Container([
         dbc.Row([
-            dbc.Col(html.H1("График занятости аудиторий", className="text-center"), className="mb-4 mt-4")
+            dbc.Col(html.H1("График занятости аудиторий", className="text-center"), className="mb-4 mt-4"),
         ]),
         dbc.Row([
-            html.P("Выберите дату чтобы проверить занятость"),
-            dcc.DatePickerSingle(
-                id='date-picker',
-                date=pd.to_datetime('today').date(),  # Default to today's date
-                display_format='YYYY-MM-DD',
-                className="mb-4"
-            )
-        ], className="d-flex"),
+            dbc.Col([
+                html.P("Выберите дату чтобы проверить занятость"),
+                dcc.DatePickerSingle(
+                    id='date-picker',
+                    date=pd.to_datetime('today').date(),  # Default to today's date
+                    display_format='YYYY-MM-DD',
+                    className="mb-4"
+                )
+            ]),
+            dbc.Col([
+                html.Div([
+                    dbc.RadioItems(
+                        id="theme-switch",
+                        class_name="btn-group",
+                        inputClassName="btn-check",
+                        labelClassName="btn btn-outline-primary",
+                        labelCheckedClassName="active",
+                        options=[
+                            {"label": "Навигация", "value": "navy"},
+                            {"label": "Roomba", "value": "roomba"},
+                        ],
+                        value="navy",
+                    )
+                ], className="radio-group", style={"margin-left": "auto", "width": "auto"})
+            ], width="auto"),
+        ], className="d-flex justify-content-between"),
         dbc.Row([
             dcc.Loading([
                 html.Div([
@@ -303,7 +332,8 @@ application.layout = html.Div([
                                     "color": "white", "font-weight": "800",
                                     "font-size": "20px"
                                 }
-                            ), style={"background-color": BUILDING_PALETTES[building][0]}
+                            ), style={"background-color": BUILDING_PALETTES[building][0]},
+                            id=f"card-header-{building}"
                         ),
                         dbc.Collapse(
                             html.Div(id=f"gantt-chart-{building}"),
@@ -313,7 +343,7 @@ application.layout = html.Div([
                         ),
                     ], className="mb-4 pb-1", style={"overflow-x": "auto"})
                     for building in BUILDINGS
-                ],id='gantt-charts')),
+                ], id='gantt-charts')),
             ], type="cube", fullscreen=True)
         ])
     ]),
