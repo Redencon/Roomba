@@ -353,7 +353,7 @@ application.layout = html.Div([
                                     "font-size": "20px"
                                 }
                             ), style={"background-color": BUILDING_PALETTES[building][0]},
-                            id=f"card-header-{building}"
+                            id=f"card-header-{building}", className="sticky-header"
                         ),
                         dbc.Collapse(
                             html.Div(id=f"gantt-chart-{building}"),
@@ -361,7 +361,7 @@ application.layout = html.Div([
                             is_open=True,
                             style={"overflow-x": "auto"}
                         ),
-                    ], className="mb-4 pb-1", style={"overflow-x": "auto"})
+                    ], className="mb-4 pb-1")
                     for building in BUILDINGS
                 ], id='gantt-charts')),
             ], type="cube", fullscreen=True)
