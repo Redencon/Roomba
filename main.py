@@ -136,12 +136,8 @@ NULL_PLOT = {"layout": {
 def generate_gantt_charts(df, building, is_today=False, theme="navy"):
     df = df[df['building'] == building]
     if df.empty:
-        return NULL_PLOT
+        return dcc.Graph(figure=NULL_PLOT, style={"width": "100%", "height": "210px"})
     rooms = sorted(dbm.get_all_rooms(building))
-    rdf = pd.DataFrame(rooms, columns=["room"])
-    df = pd.merge(rdf, df, on="room", how="left")
-    df = df.sort_values(by="room", ascending=False)
-    many_rooms = len(rooms) > 10
     room_groups = []
     i = 0
     for room in rooms:
@@ -153,6 +149,19 @@ def generate_gantt_charts(df, building, is_today=False, theme="navy"):
         df[df["room"].isin(room_group)]
         for room_group in room_groups
     ]
+    for i, df_group in enumerate(df_groups):
+        for room in room_groups[i]:
+            if room not in df_group["room"].values:
+                rdf = pd.Series({
+                    "time_start":dtt.datetime.strptime("07:30", '%H:%M'),
+                    "time_finish":dtt.datetime.strptime("08:30", '%H:%M'),
+                    "description":"NaE",
+                    "stime":"07:30",
+                    "ftime":"08:30",
+                    "weekly":"True",
+                    "room":room,
+                })
+                df_groups[i] = pd.concat([df_groups[i], rdf.to_frame().T], ignore_index=True)
     line_dash_map = {"True": "", "False": "x"}
     graphs = []
     while len(graphs) < len(room_groups):
@@ -168,6 +177,8 @@ def generate_gantt_charts(df, building, is_today=False, theme="navy"):
                     labels={"room": "Room"},
                     color_discrete_sequence=(BUILDING_PALETTES[building] if theme == "navy" else BUILDING_PALETTES["Roomba"]),
                     range_x=[dtt.datetime.strptime("08:30", '%H:%M'), dtt.datetime.strptime("22:30", '%H:%M')],
+                    pattern_shape="weekly",
+                    pattern_shape_map=line_dash_map
                 )
                 ticktext = [slot[0] for slot in TIME_SLOTS] + [TIME_SLOTS[-1][1]]
                 tickvals = [dtt.datetime.strptime(tick, '%H:%M') for tick in ticktext]
@@ -176,7 +187,8 @@ def generate_gantt_charts(df, building, is_today=False, theme="navy"):
                     tickvals=tickvals,
                     ticktext=ticktext,
                 )
-                num_rooms = len(df_group["room"].unique())
+                fig.update_yaxes(categoryarray=room_groups[i][::-1])
+                num_rooms = len(room_groups[i])
                 fig.update_traces(hovertemplate="<b>%{y}</b><br>%{customdata[1]} - %{customdata[2]}<br><br>%{customdata[0]}<extra></extra>")
                 fig.update_layout(
                     xaxis_title="",
@@ -216,6 +228,13 @@ for building in BUILDINGS:
         filtered_df = filter_events(events, selected_date)
         charts = generate_gantt_charts(filtered_df, building, selected_date == pd.to_datetime('today').strftime('%Y-%m-%d'), theme)
         return charts
+
+@callback(
+    Output("interval", "interval"),
+    Input("date-picker", "date"),
+)
+def disable_interval(selected_date):
+    return 180000 if selected_date == pd.to_datetime('today').strftime('%Y-%m-%d') else 60*60*1000
 
 @callback(
     Output("scripts", "children"),
@@ -293,7 +312,8 @@ application.layout = html.Div([
                     id='date-picker',
                     date=pd.to_datetime('today').date(),  # Default to today's date
                     display_format='YYYY-MM-DD',
-                    className="mb-4"
+                    className="mb-4",
+                    first_day_of_week=1
                 )
             ]),
             dbc.Col([

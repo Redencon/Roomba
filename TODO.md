@@ -25,3 +25,13 @@
 - [x] Add proper visual feedback for incorrect data input for login and request pages
 - [ ] (Optional) Add PDF generator for event requests
 - [x] Properly handle "lasting" and "excluded" events (are lasting events weekly or daily?)
+- [x] Restore ascending room order
+- [x] Changed password logic to OTP
+- [x] Added Navy color theme
+- [x] Adjusted "No events" message to the fixed size
+- [x] Split too many rooms for one building into batches of 10
+- [x] Adjusted search to work with times and dates and to properly account room and building formats
+- [x] Added "Made by Folegle" footer
+- [x] Changed first day of the week to Monday
+- [ ] Translate datepicker to Russian - Dash doesn't support localization - Rewrite with something else
+- [x] Added Roomba icon to login and request pages
