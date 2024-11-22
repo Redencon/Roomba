@@ -36,7 +36,7 @@ server.config['SQLALCHEMY_DATABASE_URI'] = sql_url
 server.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 dbm = DatabaseManager(server)
 
-IS_DEBUG = False
+IS_DEBUG = True
 SEARCH_RESULT_LIMIT = 25
 
 TIME_SLOTS = [
@@ -178,7 +178,8 @@ def generate_gantt_charts(df, building, is_today=False, theme="navy"):
                     color_discrete_sequence=(BUILDING_PALETTES[building] if theme == "navy" else BUILDING_PALETTES["Roomba"]),
                     range_x=[dtt.datetime.strptime("08:30", '%H:%M'), dtt.datetime.strptime("22:30", '%H:%M')],
                     pattern_shape="weekly",
-                    pattern_shape_map=line_dash_map
+                    pattern_shape_map=line_dash_map,
+                    category_orders={"room": room_groups[i][::-1]},
                 )
                 ticktext = [slot[0] for slot in TIME_SLOTS] + [TIME_SLOTS[-1][1]]
                 tickvals = [dtt.datetime.strptime(tick, '%H:%M') for tick in ticktext]
@@ -254,14 +255,15 @@ def add_scripts(*_):
 def search_events(query: str):
     if not query:
         return []
-    events = dbm.get_events_by_query(query)[:SEARCH_RESULT_LIMIT]
-    
+    events_tuple = dbm.get_events_by_query(query)[:SEARCH_RESULT_LIMIT]
+    max_score = max([score for _, score in events_tuple], default=0)
+
     return [
         dbc.Card([
             dbc.CardHeader(" ".join([WEEKDAYS[event.day],"|",event.time_start,"-",event.time_finish,"|",event.building,event.room])),
             dbc.CardBody(event.description)
-        ])
-        for event in events
+        ], className=("faded-card" if score < max_score else "mb-1"))
+        for event , score in events_tuple
     ]
 
 
@@ -313,7 +315,8 @@ application.layout = html.Div([
                     date=pd.to_datetime('today').date(),  # Default to today's date
                     display_format='YYYY-MM-DD',
                     className="mb-4",
-                    first_day_of_week=1
+                    first_day_of_week=1,
+                    style={"z-index": "15"}
                 )
             ]),
             dbc.Col([

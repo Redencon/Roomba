@@ -114,7 +114,7 @@ class DatabaseManager:
 
     def get_events_by_query(self, query: str):
         all_events: "list[Events]" = db.session.scalars(select(Events)).all()
-        res: "list[Events]" = []
+        res: "list[tuple[Events, int]]" = []
         for event in all_events:
             events_word_set = set([w.lower() for w in event.description.split()]
                 + [
@@ -147,4 +147,4 @@ class DatabaseManager:
                 match_count = len(query_word_set & events_word_set)
                 res.append((event, match_count))
         res.sort(key=lambda x: x[1], reverse=True)
-        return [r[0] for r in res]
+        return res

@@ -321,3 +321,8 @@ input {
     z-index: 10;
     background-color: var(--color-background);
 }
+
+.faded-card {
+    opacity: 0.5; /* Adjust the opacity to make the card faded */
+    background-color: #f0f0f0; /* Optional: change the background color to gray */
+}
