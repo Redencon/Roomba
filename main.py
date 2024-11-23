@@ -434,6 +434,8 @@ def index():
 
 @server.before_request
 def before_request():
+    if request.host.startswith('www.') and not IS_DEBUG:
+        return redirect(f"{request.scheme}://folegle.ru{request.path}", code=301)
     if (request.path.startswith('/dash') and not dbm.verify_password(request.cookies.get('password'))) and not IS_DEBUG:
         return redirect(url_for('request_password'))
 
