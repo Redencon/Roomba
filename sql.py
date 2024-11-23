@@ -42,7 +42,7 @@ class Events(db.Model):
 
 
 class DatabaseManager:
-    EXPIRY_PERIOD = timedelta(days=1)
+    EXPIRY_PERIOD = timedelta(days=5)
 
     def __init__(self, app: Flask):
         self.db = db
