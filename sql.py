@@ -85,7 +85,7 @@ class DatabaseManager:
         return False
 
     def generate_password(self):
-        self.clear_expired_password()
+        self.clear_expired_passwords()
         expiration_date = datetime.now() + self.EXPIRY_PERIOD
         password = token_urlsafe(6)
         password_hash = sha256(password.encode("utf-8")).hexdigest()
