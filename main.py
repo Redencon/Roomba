@@ -30,13 +30,13 @@ application = Dash("Roomba", title="Roomba", server=server, external_stylesheets
 ], routes_pathname_prefix='/dash/')
 with open("keys/SQL") as f:
     sql_username, sql_password = f.read().splitlines()
-# sql_url = f"mysql+pymysql://{sql_username}:{sql_password}@localhost/u2906537_roomba"
-sql_url = r"sqlite:///C:\Users\Redencon\Documents\PyScripts\Roomba\db.sqlite"
+sql_url = f"mysql+pymysql://{sql_username}:{sql_password}@localhost/u2906537_roomba"
+# sql_url = r"sqlite:///C:\Users\Redencon\Documents\PyScripts\Roomba\db.sqlite"
 server.config['SQLALCHEMY_DATABASE_URI'] = sql_url
 server.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 dbm = DatabaseManager(server)
 
-IS_DEBUG = True
+IS_DEBUG = False
 SEARCH_RESULT_LIMIT = 25
 
 TIME_SLOTS = [
@@ -388,6 +388,13 @@ application.layout = html.Div([
 
 @server.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'password' in request.args:
+        password = request.args.get('password')
+        if dbm.check_password(password):
+            session['password'] = password
+            response = redirect(url_for('index'))
+            response.set_cookie('password', password, max_age=60*60*24)  # Store password in cookies for 30 days
+            return response
     if request.method == 'POST':
         password = request.form.get('password')
         if dbm.check_password(password):
@@ -444,5 +451,5 @@ def check_events():
 
 # Run the app
 if __name__ == '__main__':
-    server.run(port=8050)
-    # server.run(host='0.0.0.0', ssl_context=('local.crt', 'local.key'))
+    # server.run(port=8050)
+    server.run(host='0.0.0.0', ssl_context=('local.crt', 'local.key'))

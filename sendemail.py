@@ -17,7 +17,7 @@ Subject: Пароль для Roomba
 
 Ваш одноразовый пароль:
 {password}
-Для входа перейдите по ссылке: https://folegle.ru/login
+Для входа перейдите по ссылке: https://folegle.ru/login?password={password}
 Чтобы войти ещё раз, зайдите на эту страницу ещё раз и запросите новый пароль.
 """.encode("utf-8")
         server.sendmail(SMTP_USERNAME, recipient, message)
