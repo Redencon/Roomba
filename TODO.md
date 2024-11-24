@@ -35,3 +35,13 @@
 - [x] Changed first day of the week to Monday
 - [ ] Translate datepicker to Russian - Dash doesn't support localization - Rewrite with something else
 - [x] Added Roomba icon to login and request pages
+
+## KMO rooms syncyng
+
+- [x] Add KMO section to the dashboard
+- [x] Specify format for KMO Events in the database
+- [x] Write a script to sync iCal KMO calendar with special KMO database
+- [ ] Write a script to sync mipt.tech KMO database with mipt.tech API for KMO database
+- [ ] Find a way to reliably access mipt.tech API with my credentials
+- [x] Set up a cron job to run the script every day
+- [ ] Contact miphtech to get better access to the API (if I my methods are not reliable enough)

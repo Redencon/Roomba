@@ -29,14 +29,15 @@ application = Dash("Roomba", title="Roomba", server=server, external_stylesheets
     "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
 ], routes_pathname_prefix='/dash/')
 with open("keys/SQL") as f:
-    sql_username, sql_password = f.read().splitlines()
-sql_url = f"mysql+pymysql://{sql_username}:{sql_password}@localhost/u2906537_roomba"
+    sql_url = f.read().strip()
+# sql_url = f"mysql+pymysql://{sql_username}:{sql_password}@localhost/u2906537_roomba"
 # sql_url = r"sqlite:///C:\Users\Redencon\Documents\PyScripts\Roomba\db.sqlite"
 server.config['SQLALCHEMY_DATABASE_URI'] = sql_url
 server.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 dbm = DatabaseManager(server)
 
-IS_DEBUG = False
+with open("keys/DEBUG") as f:
+    IS_DEBUG = f.read().strip() == "True"
 SEARCH_RESULT_LIMIT = 25
 
 TIME_SLOTS = [
@@ -51,7 +52,7 @@ TIME_SLOTS = [
 ]
 
 BUILDINGS = [
-    'ГК', 'ЛК', 'Квант', 'КПМ', 'Цифра', 'Арктика', 'БК', 'УПМ'
+    'ГК', 'ЛК', 'Квант', 'КПМ', 'Цифра', 'Арктика', 'БК', 'УПМ', 'КМО'
 ]
 
 BUILDING_PALETTES = {
@@ -63,6 +64,7 @@ BUILDING_PALETTES = {
     'Арктика': ["#8C7EB8", "#AB9AE0", "#675D87"],
     'БК': ["#87B145", "#A6D854", "#678734"],
     'УПМ': ["#AF447F", "#E057A2", "#7F315C"],
+    'КМО': ["#F47742", "#FF9C75", "#B55830"],
     'Roomba': ["#06826A", "#3A1771", "#24C1A4", "#4B44C5"]
 }
 
@@ -453,5 +455,7 @@ def check_events():
 
 # Run the app
 if __name__ == '__main__':
-    # server.run(port=8050)
-    server.run(host='0.0.0.0', ssl_context=('local.crt', 'local.key'))
+    if IS_DEBUG:
+        server.run(port=8050, debug=True)
+    else:
+        server.run(host='0.0.0.0', ssl_context=('local.crt', 'local.key'))
