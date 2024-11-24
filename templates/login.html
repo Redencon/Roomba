@@ -16,8 +16,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 
-<link href="../static/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="../static/style.css" rel="stylesheet">
+    <link href="../static/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../static/style.css" rel="stylesheet">
+    <script src="https://yastatic.net/s3/passport-sdk/autofill/v1/sdk-suggest-token-with-polyfills-latest.js"></script>
     
     <!-- Custom styles for this template -->
     <link href="../static/sign-in.css" rel="stylesheet">
@@ -41,5 +42,30 @@
       <p>Не полуичли пароль?<br><a href="/request-password">Запросите новый</a></p>
     </main>
     <script src="../static/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Extract the token from the URL fragment
+      const token = new URLSearchParams(window.location.hash.substring(1)).get('access_token');
+      if (token) {
+        // Send the token to the server for authentication
+        fetch('/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ token: token })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Redirect to the main page or show a success message
+            window.location.href = '/';
+          } else {
+            // Show an error message
+            document.getElementById('error-message').innerText = data.error;
+          }
+        })
+        .catch(error => console.error('Error:', error));
+      }
+    </script>
   </body>
 </html>

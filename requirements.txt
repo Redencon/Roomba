@@ -4,3 +4,4 @@ pandas
 dash-bootstrap-components
 sqlalchemy
 pymysql
+icalendar

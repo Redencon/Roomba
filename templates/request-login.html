@@ -15,9 +15,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-
-<link href="../static/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="../static/style.css" rel="stylesheet">
+    <script src="https://yastatic.net/s3/passport-sdk/autofill/v1/sdk-suggest-with-polyfills-latest.js"></script>
+    <link href="../static/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../static/style.css" rel="stylesheet">
 
     <!-- Custom styles for this template -->
     <link href="../static/sign-in.css" rel="stylesheet">
@@ -43,7 +43,30 @@
         <button class="button w-100 py-2 mb-4" type="submit">Запросить</button>
       </form>
       <p>Уже есть пароль?<br><a href="/login">Введите его здесь.</a></p>
+      <div id="buttonContainerId"></div>
     </main>
     <script src="../static/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      window.YaAuthSuggest.init(
+        {
+          client_id: "bbb13c147df148a88bbb83a86bf94b99",
+          response_type: "token",
+          redirect_uri: "https://folegle.ru/login"
+        },
+        "https://folegle.ru",
+        {
+          view: "button",
+          parentId: "buttonContainerId",
+          buttonSize: 'm',
+          buttonView: 'main',
+          buttonTheme: 'light',
+          buttonBorderRadius: "5",
+          buttonIcon: 'ya',
+        }
+      )
+      .then(({handler}) => handler())
+      .then(data => console.log('Сообщение с токеном', data))
+      .catch(error => console.log('Обработка ошибки', error))
+    </script>
     </body>
 </html>

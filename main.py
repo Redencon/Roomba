@@ -15,6 +15,7 @@ import datetime as dtt
 import re
 from sendemail import send_email
 from sql import DatabaseManager, Events, Passwords, WEEKDAYS
+import requests
 # import logging
 
 # Configuration
@@ -390,6 +391,30 @@ application.layout = html.Div([
 
 @server.route('/login', methods=['GET', 'POST'])
 def login():
+    data = request.json
+    token = data.get('token')
+    if token:
+        # Make a GET request to the Yandex API to retrieve user information
+        headers = {
+            'Authorization': f'OAuth {token}'
+        }
+        rqt_response = requests.get('https://login.yandex.ru/info', headers=headers)
+        
+        if rqt_response.status_code == 200:
+            user_info = response.json()
+            email = user_info.get('default_email')
+            
+            # Check the domain of the email
+            if email and email.endswith('@phystech.edu'):
+                # Authenticate the user and create a session
+                password = dbm.generate_password()
+                response = redirect(url_for('index'))
+                response.set_cookie('password', password, max_age=60*60*24)  # Store password in cookies for 30 days
+                return jsonify(success=True)
+            else:
+                return jsonify(success=False, error="Invalid email domain")
+        else:
+            return jsonify(success=False, error="Failed to retrieve user information")
     if 'password' in request.args:
         password = request.args.get('password')
         if dbm.check_password(password):
