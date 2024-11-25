@@ -76,8 +76,8 @@ h3 {
 
 @media (max-width: 1000px) {
     .container{
-        margin-left: 5%;
-        margin-right: 5%;
+        padding-left: 5%;
+        padding-right: 5%;
     }
 }
 
@@ -325,4 +325,15 @@ input {
 .faded-card {
     opacity: 0.5; /* Adjust the opacity to make the card faded */
     background-color: #f0f0f0; /* Optional: change the background color to gray */
+}
+
+.btn-primary {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: white;
+
+    &:hover {
+        background-color: var(--color-primary-light);
+        border-color: var(--color-primary-light);
+    }
 }

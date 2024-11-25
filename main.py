@@ -302,6 +302,40 @@ def change_theme(theme):
 #     is_open = args[len(BUILDINGS) + BUILDINGS.index(building)]['is_open']
 #     return [not is_open if f"group-{building}-toggle" == button_id else is_open for building in BUILDINGS]
 
+@callback(
+    Output("fr-modal", "is_open"),
+    Input("fr-button", "n_clicks"),
+    Input("fr-close", "n_clicks"),
+    State("fr-modal", "is_open"),
+    prevent_initial_call=True
+)
+def toggle_free_rooms(_a, _b, is_open):
+    return not is_open
+
+@callback(
+    Output("free-rooms", "children"),
+    Input("fr-submit", "n_clicks"),
+    State("fr-building-dropdown", "value"),
+    State("fr-time", "value"),
+    prevent_initial_call=True
+)
+def show_free_rooms(n_clicks, building, time):
+    if not time:
+        time = dtt.datetime.now().strftime('%H:%M')
+    free_rooms = dbm.get_free_rooms(time)
+    if building != "all":
+        free_rooms = [room for room in free_rooms if room[1] == building]
+    return html.Ul([
+        html.Li([
+            f"{room[0]} ",
+            html.Span(room[1], style={
+                "color": (BUILDING_PALETTES[room[1]][0] if room[1] in BUILDING_PALETTES else BUILDING_PALETTES["Roomba"][0]),
+                "font-weight": "700"}
+            )
+        ])
+        for room in free_rooms
+    ])
+
 application.layout = html.Div([
     html.Div(
             html.Header("Roomba", id="main_header"),
@@ -322,6 +356,9 @@ application.layout = html.Div([
                     first_day_of_week=1,
                     style={"z-index": "15"}
                 )
+            ]),
+            dbc.Col([
+               html.Button("Свободные аудитории", id="fr-button", className="btn btn-primary", style={"width": "100%"})
             ]),
             dbc.Col([
                 html.Div([
@@ -384,6 +421,31 @@ application.layout = html.Div([
         html.Br(),
         html.Div(id="search-results")
     ], id="search-offcanvas", scrollable=True, is_open=False, title="Поиск"),
+    dbc.Modal([
+        dbc.ModalHeader("Свободные аудитории"),
+        dbc.ModalBody([
+            html.Div([
+                dcc.Dropdown([
+                    {"label": html.Span("Все"), "value": "all"}
+                ]+[
+                    {"label": html.Span(building, style={
+                        'color': BUILDING_PALETTES[building][0],
+                        'font-weight': '700',
+                    }), "value": building}
+                    for building in BUILDINGS
+                ], value='all', id="fr-building-dropdown", style={"min-width": "160px"}, clearable=False),
+                dcc.Input(
+                    id="fr-time", type="time", required=False, placeholder="Сейчас",
+                    style={"height": "36px"}, className="mx-1"
+                ),
+                html.Button("Показать", id="fr-submit", className="btn btn-primary")
+            ], className="d-flex justify-content-between"),
+            html.Div(id="free-rooms")
+        ], style={"min-height": "500px"}),
+        dbc.ModalFooter(
+            dbc.Button("Закрыть", id="fr-close", className="btn btn-secondary ms-auto")
+        )
+    ], scrollable=True, id="fr-modal", is_open=False, backdrop='static'),
     html.Footer(dbc.Container(dbc.Row(dbc.Col(
         html.Div(["Собрано ", html.A("Folegle", href="https://t.me/folegle")," - для ", html.A("МКИ (Студсовета МФТИ)", href="https://t.me/mki_mipt")], className="small m-0")
     ), class_name="align-items-center justify-content-between flex-column flex-sm-row"), className="px-5"), className="bg-white py-1 mt-auto"),

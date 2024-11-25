@@ -149,3 +149,19 @@ class DatabaseManager:
                 res.append((event, match_count))
         res.sort(key=lambda x: x[1], reverse=True)
         return res
+    
+    def get_free_rooms(self, time: str):
+        date_dtt = datetime.today()
+        weekday = date_dtt.weekday() + 1
+        time_dtt = datetime.strptime(time, '%H:%M')
+        res = db.session.scalars(select(Events).where(Events.day == weekday)).all()
+        all_rooms = set([
+            (e.room, e.building)
+            for e in res
+        ])
+        busy_rooms = set([
+            (event.room, event.building)
+            for event in db.session.scalars(select(Events).where(Events.day == weekday)).all()
+            if datetime.strptime(event.time_start, '%H:%M') <= time_dtt <= datetime.strptime(event.time_finish, '%H:%M')
+        ])
+        return sorted(list(all_rooms - busy_rooms), key=lambda x: x[1]+x[0])
