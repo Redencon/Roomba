@@ -1,5 +1,5 @@
 import flask
-from flask import request, redirect, url_for, session, render_template, jsonify
+from flask import request, redirect, url_for, session, render_template, jsonify, make_response
 import secrets
 from dash import Dash, dcc, html, Input, Output, callback, State
 import dash
@@ -16,6 +16,7 @@ import re
 from sendemail import send_email
 from sql import DatabaseManager, Events, Passwords, WEEKDAYS
 import requests
+import traceback
 # import logging
 
 # Configuration
@@ -391,30 +392,6 @@ application.layout = html.Div([
 
 @server.route('/login', methods=['GET', 'POST'])
 def login():
-    data = request.json
-    token = data.get('token')
-    if token:
-        # Make a GET request to the Yandex API to retrieve user information
-        headers = {
-            'Authorization': f'OAuth {token}'
-        }
-        rqt_response = requests.get('https://login.yandex.ru/info', headers=headers)
-        
-        if rqt_response.status_code == 200:
-            user_info = response.json()
-            email = user_info.get('default_email')
-            
-            # Check the domain of the email
-            if email and email.endswith('@phystech.edu'):
-                # Authenticate the user and create a session
-                password = dbm.generate_password()
-                response = redirect(url_for('index'))
-                response.set_cookie('password', password, max_age=60*60*24)  # Store password in cookies for 30 days
-                return jsonify(success=True)
-            else:
-                return jsonify(success=False, error="Invalid email domain")
-        else:
-            return jsonify(success=False, error="Failed to retrieve user information")
     if 'password' in request.args:
         password = request.args.get('password')
         if dbm.check_password(password):
@@ -435,12 +412,35 @@ def login():
 @server.route('/request-password', methods=['GET', 'POST'])
 def request_password():
     if request.method == 'POST':
-        if 'last_request' in session:
-            last_request = session['last_request']
-            now = dtt.datetime.now(tz=last_request.tzinfo)
-            if (now - last_request).total_seconds() < 60:  # Limit to 1 request per minute
-                return render_template("request-login.html", error="Слишком много запросов. Попробуйте позже.")
-        
+        data = request.json
+        token = data.get('token')
+        try:
+            if token:
+                headers = {
+                    'Authorization': f'OAuth {token}'
+                }
+                rqt_response = requests.get('https://login.yandex.ru/info', headers=headers)
+                
+                if rqt_response.status_code != 200:
+                    return jsonify({"status": "error", "message": f"Failed to retrieve user information, {rqt_response.reason}"})
+                user_info = rqt_response.json()
+                email = user_info.get('default_email')
+                
+                # Check the domain of the email
+                if not email or not email.endswith('@phystech.edu'):
+                    return jsonify({"status": "error", "message": f"Invalid email domain: {email}. Please use a phystech.edu email address"})
+                    # Authenticate the user and create a session
+                password = dbm.generate_password()
+                response = jsonify({"status": "success"})
+                response.set_cookie('password', password, max_age=60*60*24)  # Store password in cookies for 30 days
+                return response
+            if 'last_request' in session:
+                last_request = session['last_request']
+                now = dtt.datetime.now(tz=last_request.tzinfo)
+                if (now - last_request).total_seconds() < 60:  # Limit to 1 request per minute
+                    return render_template("request-login.html", error="Слишком много запросов. Попробуйте позже.")
+        except Exception as e:
+            return jsonify({"status": "error", "message": traceback.format_exc()})
         address = request.form.get('email')
         if "@" in address:
             return render_template("request-login.html", error="Неверный формат. Напишите только часть до @.")
@@ -452,6 +452,13 @@ def request_password():
         session['last_request'] = dtt.datetime.now()
         return redirect(url_for('login'))
     return render_template('request-login.html')
+
+@server.route('/oauth')
+def oauth():
+    try:
+        return render_template('oauth.html')
+    except Exception as e:
+        return jsonify({"status": "error", "message": traceback.format_exc()})
 
 @server.route('/')
 def index():

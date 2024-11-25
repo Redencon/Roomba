@@ -51,7 +51,7 @@
         {
           client_id: "bbb13c147df148a88bbb83a86bf94b99",
           response_type: "token",
-          redirect_uri: "https://folegle.ru/login"
+          redirect_uri: "https://folegle.ru/oauth"
         },
         "https://folegle.ru",
         {
@@ -65,7 +65,32 @@
         }
       )
       .then(({handler}) => handler())
-      .then(data => console.log('Сообщение с токеном', data))
+      .then(data => {
+        console.log('Сообщение с токеном', data);
+        // Extract the token from the data
+        const token = data.access_token;
+        if (token) {
+          // Send the token to the server for authentication
+          fetch('/request-password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ token: token })
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.status == "success") {
+              // Redirect to the main page or show a success message
+              window.location.href = '/';
+            } else {
+              // Show an error message
+              document.getElementById('error-message').innerText = data.error;
+              document.getElementById('error-message').style.display = 'block';
+            }
+          })
+        }
+      })
       .catch(error => console.log('Обработка ошибки', error))
     </script>
     </body>
