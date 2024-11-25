@@ -8,6 +8,9 @@ from flask import Flask
 import re
 
 
+DATE_PATTERN = re.compile(r"\d{2}\.\d{2}")
+DATE_RANGE_PATTERN = re.compile(r"\d{2}\.\d{2}-\d{2}\.\d{2}")
+
 WEEKDAYS = {
     1: "ПН",
     2: "ВТ",
@@ -150,8 +153,8 @@ class DatabaseManager:
         res.sort(key=lambda x: x[1], reverse=True)
         return res
     
-    def get_free_rooms(self, time: str):
-        date_dtt = datetime.today()
+    def get_free_rooms(self, time: str, date: str):
+        date_dtt = datetime.strptime(date, '%Y-%m-%d')
         weekday = date_dtt.weekday() + 1
         time_dtt = datetime.strptime(time, '%H:%M')
         res = db.session.scalars(select(Events).where(Events.day == weekday)).all()
@@ -159,9 +162,23 @@ class DatabaseManager:
             (e.room, e.building)
             for e in res
         ])
+        def event_at_time(event: Events, time_dtt: datetime, date_dtt: datetime):
+            start_time = datetime.strptime(event.time_start, '%H:%M')
+            finish_time = datetime.strptime(event.time_finish, '%H:%M')
+            date_str = date_dtt.strftime('%d.%m')
+            dates = re.findall(DATE_PATTERN, event.description)
+            date_range = re.search(DATE_RANGE_PATTERN, event.description)
+            if date_range:
+                date_start, date_finish = date_range.group().split('-')
+                start_dtt = datetime.strptime(date_start, '%d.%m')
+                finish_dtt = datetime.strptime(date_finish, '%d.%m')
+                return start_time <= time_dtt <= finish_time and start_dtt <= date_dtt <= finish_dtt
+            if not dates:
+                return start_time <= time_dtt <= finish_time
+            return start_time <= time_dtt <= finish_time and date_str in dates
         busy_rooms = set([
             (event.room, event.building)
             for event in db.session.scalars(select(Events).where(Events.day == weekday)).all()
-            if datetime.strptime(event.time_start, '%H:%M') <= time_dtt <= datetime.strptime(event.time_finish, '%H:%M')
+            if event_at_time(event, time_dtt, date_dtt)
         ])
         return sorted(list(all_rooms - busy_rooms), key=lambda x: x[1]+x[0])

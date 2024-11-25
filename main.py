@@ -313,16 +313,17 @@ def toggle_free_rooms(_a, _b, is_open):
     return not is_open
 
 @callback(
-    Output("free-rooms", "children"),
+    Output("free-rooms", "children", allow_duplicate=True),
     Input("fr-submit", "n_clicks"),
     State("fr-building-dropdown", "value"),
     State("fr-time", "value"),
-    prevent_initial_call=True
+    State("date-picker", "date"),
+    prevent_initial_call=True,
 )
-def show_free_rooms(n_clicks, building, time):
+def show_free_rooms(n_clicks, building, time, date):
     if not time:
         time = dtt.datetime.now().strftime('%H:%M')
-    free_rooms = dbm.get_free_rooms(time)
+    free_rooms = dbm.get_free_rooms(time, date)
     if building != "all":
         free_rooms = [room for room in free_rooms if room[1] == building]
     return html.Ul([
@@ -335,6 +336,15 @@ def show_free_rooms(n_clicks, building, time):
         ])
         for room in free_rooms
     ])
+
+
+@callback(
+    Output("fr-header", "children"),
+    Output("free-rooms", "children"),
+    Input("date-picker", "date"),
+)
+def update_fr_header(selected_date):
+    return f"Свободные аудитории {selected_date}", None
 
 application.layout = html.Div([
     html.Div(
@@ -422,7 +432,7 @@ application.layout = html.Div([
         html.Div(id="search-results")
     ], id="search-offcanvas", scrollable=True, is_open=False, title="Поиск"),
     dbc.Modal([
-        dbc.ModalHeader("Свободные аудитории"),
+        dbc.ModalHeader("Свободные аудитории", id="fr-header"),
         dbc.ModalBody([
             html.Div([
                 dcc.Dropdown([
