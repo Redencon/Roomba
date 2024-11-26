@@ -285,8 +285,12 @@ input {
     font-size: 16px;
     width: 40px;
     cursor: pointer;
-    z-index: 1000; /* Ensure it is above other elements */
+    z-index: 100; /* Ensure it is above other elements */
     border-radius: 3px;
+}
+
+.menu-toggle.lower {
+    top: 60px
 }
 
 .radio-group .form-check {

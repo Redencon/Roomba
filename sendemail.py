@@ -13,7 +13,7 @@ def send_email(recipient, password):
         server.starttls()
         server.login(SMTP_USERNAME, SMTP_PASSWORD)
         message = f"""\
-Subject: Пароль для Roomba
+Subject: Пароль для Folegle
 
 Ваш одноразовый пароль:
 {password}

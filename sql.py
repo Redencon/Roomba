@@ -21,6 +21,18 @@ WEEKDAYS = {
     7: "ВС",
 }
 
+PS = {
+    "01": "фркт",
+    "02": "лфи",
+    "03": "факт",
+    "04": "фэфм",
+    "05": "фпми",
+    "06": "фбмф",
+    "07": "кнт",
+    "09": "фбвт",
+    "13": "вшпи",
+}
+
 class Base(DeclarativeBase):
     pass
 
@@ -119,6 +131,15 @@ class DatabaseManager:
     def get_events_by_query(self, query: str):
         all_events: "list[Events]" = db.session.scalars(select(Events)).all()
         res: "list[tuple[Events, int]]" = []
+        query_word_set = set([w.lower() for w in query.split()])
+        group = re.search(r"[бмс]\d\d-\d\d\d", query.lower())
+        if group:
+            text = group.group(0)
+            ps = PS[text[1:3]]
+            year = str(5-int(text[4]))
+            query_word_set.update([
+                ps, year, year+"к", year+"к."
+            ])
         for event in all_events:
             events_word_set = set([w.lower() for w in event.description.split()]
                 + [
@@ -136,7 +157,6 @@ class DatabaseManager:
                     maxdate = max(dates_dtt)
                     if maxdate < today:
                         continue
-            query_word_set = set([w.lower() for w in query.split()])
             start_time = datetime.strptime(event.time_start, '%H:%M')
             finish_time = datetime.strptime(event.time_finish, '%H:%M')
             time_mentions = re.findall(r'\d{1,2}:\d{2}', query)

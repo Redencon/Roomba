@@ -17,6 +17,7 @@ from sendemail import send_email
 from sql import DatabaseManager, Events, Passwords, WEEKDAYS
 import requests
 import traceback
+from new_features import new_features
 # import logging
 
 # Configuration
@@ -26,14 +27,12 @@ SECRET_KEY = "your_secret_key"
 server = flask.Flask(__name__)
 server.secret_key = "MyNameIsNotDiana"
 GOOGLE = "https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
-application = Dash("Roomba", title="Roomba", server=server, external_stylesheets=[
+application = Dash("Folegle", title="Folegle", server=server, external_stylesheets=[
     dbc.themes.BOOTSTRAP, GOOGLE, "static/style.css",
     "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
 ], routes_pathname_prefix='/dash/')
 with open("keys/SQL") as f:
     sql_url = f.read().strip()
-# sql_url = f"mysql+pymysql://{sql_username}:{sql_password}@localhost/u2906537_roomba"
-# sql_url = r"sqlite:///C:\Users\Redencon\Documents\PyScripts\Roomba\db.sqlite"
 server.config['SQLALCHEMY_DATABASE_URI'] = sql_url
 server.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 dbm = DatabaseManager(server)
@@ -346,9 +345,20 @@ def show_free_rooms(n_clicks, building, time, date):
 def update_fr_header(selected_date):
     return f"Свободные аудитории {selected_date}", None
 
+
+@callback(
+    Output("new-features-modal", "is_open"),
+    Input("new-features-button", "n_clicks"),
+    State("new-features-modal", "is_open"),
+    prevent_initial_call=True
+)
+def toggle_new_features(n_clicks, is_open):
+    return not is_open
+
+
 application.layout = html.Div([
     html.Div(
-            html.Header("Roomba", id="main_header"),
+            html.Header("Folegle", id="main_header"),
             className="header-fullwidth"
         ),
     dbc.Container([
@@ -418,7 +428,7 @@ application.layout = html.Div([
                     ], className="mb-4 pb-1")
                     for building in BUILDINGS
                 ], id='gantt-charts')),
-            ], type="cube", fullscreen=True)
+            ], type="cube", fullscreen=True, style={"z-index": 9999})
         ])
     ]),
     html.Button(
@@ -426,11 +436,23 @@ application.layout = html.Div([
         id="search-button",
         className="menu-toggle",
     ),
+    html.Button(
+        html.I(className="bi bi-stars"),
+        id="new-features-button",
+        className="menu-toggle lower",
+    ),
     dbc.Offcanvas([
         dcc.Input(id="search-input", type="text", placeholder="Поиск...", debounce=True),
         html.Br(),
         html.Div(id="search-results")
     ], id="search-offcanvas", scrollable=True, is_open=False, title="Поиск"),
+    dbc.Modal([
+        dbc.ModalHeader("Новое в этой версии"),
+        dbc.ModalBody(new_features()),
+        dbc.ModalFooter([
+            "Для связи напишите Folegle в Telegram: ", html.A("@folegle", href="https://t.me/folegle")
+        ])
+    ], id="new-features-modal", is_open=False, scrollable=True),
     dbc.Modal([
         dbc.ModalHeader("Свободные аудитории", id="fr-header"),
         dbc.ModalBody([
