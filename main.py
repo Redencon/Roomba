@@ -19,6 +19,7 @@ import requests
 import traceback
 from new_features import new_features
 # import logging
+from functools import wraps
 
 # Configuration
 PASSWORD = "your_password"
@@ -95,6 +96,16 @@ BUILDING_PALETTES = {
 #     filtered_df = df[(df['day'] == weekday)]
     
 #     return filtered_df
+
+def track_usage(name):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            dbm.counter_plus_one(name)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
 
 def filter_events(events, date):
     date_proper = dtt.datetime.strptime(date, '%Y-%m-%d').strftime('%d.%m')
@@ -258,6 +269,7 @@ def add_scripts(*_):
 def search_events(query: str):
     if not query:
         return []
+    dbm.counter_plus_one("non_empty_search")
     events_tuple = dbm.get_events_by_query(query)[:SEARCH_RESULT_LIMIT]
     max_score = max([score for _, score in events_tuple], default=0)
 
@@ -275,6 +287,7 @@ def search_events(query: str):
     Input("search-button", "n_clicks"),
     prevent_initial_call=True
 )
+@track_usage("open_search")
 def open_search(n_clicks):
     return True
 
@@ -285,6 +298,7 @@ def open_search(n_clicks):
 def change_theme(theme):
     if theme == "navy":
         return [{"background-color": BUILDING_PALETTES[building][0]} for building in BUILDINGS]
+    dbm.counter_plus_one("use_roomba_theme")
     return [{"background-color": BUILDING_PALETTES["Roomba"][i % 2]} for i, _ in enumerate(BUILDINGS)]
 
 # @app.callback(
@@ -308,6 +322,7 @@ def change_theme(theme):
     State("fr-modal", "is_open"),
     prevent_initial_call=True
 )
+@track_usage("open_free_rooms")
 def toggle_free_rooms(_a, _b, is_open):
     return not is_open
 
@@ -319,11 +334,15 @@ def toggle_free_rooms(_a, _b, is_open):
     State("date-picker", "date"),
     prevent_initial_call=True,
 )
+@track_usage("show_free_rooms")
 def show_free_rooms(n_clicks, building, time, date):
     if not time:
         time = dtt.datetime.now().strftime('%H:%M')
+    else:
+        dbm.counter_plus_one("free_rooms_time_set")
     free_rooms = dbm.get_free_rooms(time, date)
     if building != "all":
+        dbm.counter_plus_one("filtered_free_rooms_building")
         free_rooms = [room for room in free_rooms if room[1] == building]
     return html.Ul([
         html.Li([
@@ -352,6 +371,7 @@ def update_fr_header(selected_date):
     State("new-features-modal", "is_open"),
     prevent_initial_call=True
 )
+@track_usage("open_new_features")
 def toggle_new_features(n_clicks, is_open):
     return not is_open
 
@@ -485,6 +505,7 @@ application.layout = html.Div([
 ])
 
 @server.route('/login', methods=['GET', 'POST'])
+@track_usage("login_page")
 def login():
     if 'password' in request.args:
         password = request.args.get('password')
@@ -504,6 +525,7 @@ def login():
     return render_template('login.html')
 
 @server.route('/request-password', methods=['GET', 'POST'])
+@track_usage("request_password_page")
 def request_password():
     if request.method == 'POST':
         data = request.json
@@ -548,6 +570,7 @@ def request_password():
     return render_template('request-login.html')
 
 @server.route('/oauth')
+@track_usage("oauth_page")
 def oauth():
     try:
         return render_template('oauth.html')
@@ -555,6 +578,7 @@ def oauth():
         return jsonify({"status": "error", "message": traceback.format_exc()})
 
 @server.route('/')
+@track_usage("index_page")
 def index():
     if dbm.verify_password(request.cookies.get('password')) or IS_DEBUG:
         return application.index()
@@ -565,9 +589,11 @@ def before_request():
     if request.host.startswith('www.') and not IS_DEBUG:
         return redirect(f"{request.scheme}://folegle.ru{request.path}", code=301)
     if (request.path.startswith('/dash') and not dbm.verify_password(request.cookies.get('password'))) and not IS_DEBUG:
+        dbm.counter_plus_one("unauthorized_dash_access")
         return redirect(url_for('request_password'))
 
 @server.route('/check_events')
+@track_usage("check_events_request")
 def check_events():
     if not dbm.verify_password(request.cookies.get('password')):
         return redirect(url_for('request_password'))
@@ -577,6 +603,15 @@ def check_events():
     
     event_list = [{"id": e.id, "description": e.description, "building": e.building, "room": e.room, "time_start": e.time_start, "time_finish": e.time_finish, "day": e.day} for e in events]
     return jsonify({"status": "success", "events": event_list})
+
+
+@server.route('/get_counters')
+@track_usage("get_counters_request")
+def get_counters():
+    if not dbm.verify_password(request.cookies.get('password')) and not IS_DEBUG:
+        return redirect(url_for('request_password'))
+    counters = dbm.get_all_counters()
+    return jsonify({"status": "success", "counters": {k: v for k, v in counters}})
 
 
 # Run the app

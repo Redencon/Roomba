@@ -56,6 +56,12 @@ class Events(db.Model):
     day: Mapped[int]
 
 
+class Counter(db.Model):
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    count: Mapped[int]
+
+
 class DatabaseManager:
     EXPIRY_PERIOD = timedelta(days=5)
 
@@ -134,6 +140,7 @@ class DatabaseManager:
         query_word_set = set([w.lower() for w in query.split()])
         group = re.search(r"[бмс]\d\d-\d\d\d", query.lower())
         if group:
+            self.counter_plus_one("group_in_query")
             text = group.group(0)
             ps = PS[text[1:3]]
             year = str(5-int(text[4]))
@@ -202,3 +209,14 @@ class DatabaseManager:
             if event_at_time(event, time_dtt, date_dtt)
         ])
         return sorted(list(all_rooms - busy_rooms), key=lambda x: x[1]+x[0])
+
+    def counter_plus_one(self, name: str):
+        counter = db.session.scalars(select(Counter).where(Counter.name == name)).one_or_none()
+        if counter:
+            counter.count += 1
+        else:
+            db.session.add(Counter(name=name, count=1))
+        db.session.commit()
+
+    def get_all_counters(self):
+        return [(c.name, c.count) for c in db.session.scalars(select(Counter)).all()]
