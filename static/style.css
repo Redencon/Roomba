@@ -275,23 +275,24 @@ input {
 }
 
 .menu-toggle {
-    position: fixed;
+    /* position: fixed;
     top: 10px;
-    right: 40px;
+    right: 40px; */
     background-color: #333;
     color: white;
     border: none;
     padding: 5px 5px;
+    margin-bottom: 15px;
     font-size: 16px;
     width: 40px;
     cursor: pointer;
     z-index: 100; /* Ensure it is above other elements */
     border-radius: 3px;
 }
-
+/* 
 .menu-toggle.lower {
     top: 60px
-}
+} */
 
 .radio-group .form-check {
     padding-left: 0;
@@ -340,4 +341,9 @@ input {
         background-color: var(--color-primary-light);
         border-color: var(--color-primary-light);
     }
+}
+
+.dropdown-toggle.btn {
+    margin-left: 0;
+    margin-right: 0;
 }

@@ -436,7 +436,15 @@ application.layout = html.Div([
                         ],
                         value="navy",
                     )
-                ], className="radio-group", style={"margin-left": "auto", "width": "auto"})
+                ], className="radio-group", style={"margin-left": "auto", "width": "auto"}),
+                dbc.DropdownMenu([
+                    dbc.DropdownMenuItem(building, href=f"#card-{building}", style={
+                        "color": palette[0],
+                        "font-weight": "800",
+                    }, external_link=True)
+                    for building, palette in BUILDING_PALETTES.items()
+                    if building != "Roomba"
+                ], style={"margin-right": "auto"}, label="Перейти к", className="my-2"),
             ], width="auto"),
         ], className="d-flex justify-content-between"),
         dbc.Row([
@@ -467,22 +475,34 @@ application.layout = html.Div([
                             is_open=True,
                             style={"overflow-x": "auto"}
                         ),
-                    ], className="mb-4 pb-1")
+                    ], className="mb-4 pb-1", id=f"card-{building}")
                     for building in BUILDINGS
                 ], id='gantt-charts')),
             ], type="cube", fullscreen=True, style={"z-index": 9999})
         ])
     ]),
-    html.Button(
-        html.I(className="bi bi-search"),
-        id="search-button",
-        className="menu-toggle",
-    ),
-    html.Button(
-        html.I(className="bi bi-stars"),
-        id="new-features-button",
-        className="menu-toggle lower",
-    ),
+    html.Div([
+        html.Button(
+            html.I(className="bi bi-search"),
+            id="search-button",
+            className="menu-toggle",
+        ),
+        html.Button(
+            html.I(className="bi bi-stars"),
+            id="new-features-button",
+            className="menu-toggle",
+        ),
+        html.Button(
+            html.I(className="bi bi-chevron-up"),
+            id="go-top-button",
+            className="menu-toggle",
+        ),
+    ], id="hover-buttons", className="d-flex flex-column", style={
+            "position": "fixed",
+            "top": "20px",
+            "right": "20px",
+            "z-index": "100",
+        }),
     dbc.Offcanvas([
         dcc.Input(id="search-input", type="text", placeholder="Поиск...", debounce=True),
         html.Br(),
@@ -638,7 +658,7 @@ def get_counters():
 
 # Run the app
 if __name__ == '__main__':
-    if sys.argv[1] == "-d":
+    if len(sys.argv) > 1 and sys.argv[1] == "-d":
         IS_DEBUG = True
         server.run(host='0.0.0.0', ssl_context=('local.crt', 'local.key'))
     else:
