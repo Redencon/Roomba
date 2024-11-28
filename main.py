@@ -20,6 +20,7 @@ import traceback
 from new_features import new_features
 # import logging
 from functools import wraps
+import sys
 
 # Configuration
 PASSWORD = "your_password"
@@ -637,7 +638,11 @@ def get_counters():
 
 # Run the app
 if __name__ == '__main__':
-    if IS_DEBUG:
-        server.run(port=8050, debug=True)
-    else:
+    if sys.argv[1] == "-d":
+        IS_DEBUG = True
         server.run(host='0.0.0.0', ssl_context=('local.crt', 'local.key'))
+    else:
+        if IS_DEBUG:
+            server.run(port=8050, debug=True)
+        else:
+            server.run(host='0.0.0.0', ssl_context=('local.crt', 'local.key'))
