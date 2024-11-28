@@ -9,11 +9,13 @@
 
 
 :root {
-    --color-primary: #06826a;
-    --color-primary-dimmed: #698680;
-    --color-secondary: #3a1771;
-    --color-primary-light: #24c1a4;
-    --color-secondary-light: #4b44c5;
+    --color-primary: #6678B9;
+    --color-primary-dimmed: #374163;
+    --color-secondary: #ED6A66;
+    --color-primary-light: #EAA09F;
+    --color-secondary-light: #949CB5;
+    --color-tertiary: #FAB62F;
+    --colot-tertiary-light: #F9CD7A;
     --color-warning: #914519;
     --color-background: #f5f5f5;
     --color-text: #000;
@@ -21,7 +23,7 @@
     --color-text-grey: #666;
     --font: 'Montserrat', sans-serif;
     --font-size: 16px;
-    --main-gradient: linear-gradient(80deg, var(--color-primary), var(--color-secondary));
+    --main-gradient: linear-gradient(80deg, var(--color-primary) 0%, var(--color-secondary) 50%, var(--color-tertiary) 100%);
 
     --large-font: 1.5rem;
     --x-large-font: 2rem;

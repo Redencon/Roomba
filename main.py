@@ -68,7 +68,7 @@ BUILDING_PALETTES = {
     'БК': ["#87B145", "#A6D854", "#678734"],
     'УПМ': ["#AF447F", "#E057A2", "#7F315C"],
     'КМО': ["#F47742", "#FF9C75", "#B55830"],
-    'Roomba': ["#06826A", "#3A1771", "#24C1A4", "#4B44C5"]
+    'Roomba': ["#6678B9", "#ED6A66", "#FAB62F"]
 }
 
 # def filter_data_for_day(data, selected_date):
@@ -315,7 +315,7 @@ def change_theme(theme):
     if theme == "navy":
         return [{"background-color": BUILDING_PALETTES[building][0]} for building in BUILDINGS]
     dbm.counter_plus_one("use_roomba_theme")
-    return [{"background-color": BUILDING_PALETTES["Roomba"][i % 2]} for i, _ in enumerate(BUILDINGS)]
+    return [{"background-color": BUILDING_PALETTES["Roomba"][i % 3]} for i, _ in enumerate(BUILDINGS)]
 
 # @app.callback(
 #     [Output(f"collapse-{building}", "is_open") for building in BUILDINGS],
