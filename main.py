@@ -147,6 +147,11 @@ NULL_PLOT = {"layout": {
     }]
 }}
 
+def process_room_name(room_name: str):
+    if room_name.startswith('!'):
+        return f"<b>{room_name[1:]}</b>"
+    return room_name
+
 def generate_gantt_charts(df, building, is_today=False, theme="navy"):
     df = df[df['building'] == building]
     if df.empty:
@@ -202,7 +207,12 @@ def generate_gantt_charts(df, building, is_today=False, theme="navy"):
                     tickvals=tickvals,
                     ticktext=ticktext,
                 )
-                fig.update_yaxes(categoryarray=room_groups[i][::-1])
+                y_labels = [process_room_name(room) for room in room_groups[i][::-1]]
+                fig.update_yaxes(
+                    categoryarray=room_groups[i][::-1],
+                    ticktext=y_labels,
+                    tickvals=room_groups[i][::-1],
+                )
                 num_rooms = len(room_groups[i])
                 fig.update_traces(hovertemplate="<b>%{y}</b><br>%{customdata[1]} - %{customdata[2]}<br><br>%{customdata[0]}<extra></extra>")
                 fig.update_layout(
@@ -275,10 +285,15 @@ def search_events(query: str):
 
     return [
         dbc.Card([
-            dbc.CardHeader(" ".join([WEEKDAYS[event.day],"|",event.time_start,"-",event.time_finish,"|",event.building,event.room])),
+            dbc.CardHeader(" ".join([
+                WEEKDAYS[event.day],"|",
+                event.time_start,"-",event.time_finish,
+                "|",event.building,
+                (event.room[1:] if event.room.startswith("!") else event.room)
+            ])),
             dbc.CardBody(event.description)
         ], className=("faded-card" if score < max_score else "mb-1"))
-        for event , score in events_tuple
+        for event, score in events_tuple
     ]
 
 

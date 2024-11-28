@@ -135,6 +135,7 @@ class DatabaseManager:
         return list(res)
 
     def get_events_by_query(self, query: str):
+        """Parse search query and return ordered list of events that fully or partially match the query"""
         all_events: "list[Events]" = db.session.scalars(select(Events)).all()
         res: "list[tuple[Events, int]]" = []
         query_word_set = set([w.lower() for w in query.split()])
@@ -149,11 +150,12 @@ class DatabaseManager:
                 ps, year, year+"к", year+"к."
             ])
         for event in all_events:
+            room = (event.room[1:] if event.room.startswith('!') else event.room).lower()
             events_word_set = set([w.lower() for w in event.description.split()]
                 + [
-                    event.building.lower(), event.room.lower(), event.description.lower(),
-                    event.building.lower()+event.room.lower(),
-                    event.room.lower()+event.building.lower(),
+                    event.building.lower(), room, event.description.lower(),
+                    event.building.lower()+room,
+                    room+event.building.lower(),
                 ]
             )
             pattern = re.compile(r"\d{2}\.\d{2}")
