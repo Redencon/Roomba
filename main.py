@@ -361,7 +361,13 @@ def show_free_rooms(n_clicks, building, time, date):
         free_rooms = [room for room in free_rooms if room[1] == building]
     return html.Ul([
         html.Li([
-            f"{room[0]} ",
+            html.Span(
+                room[0].strip("!")+"  ",
+                style=({
+                    "color": (BUILDING_PALETTES[room[1]][0] if room[1] in BUILDING_PALETTES else BUILDING_PALETTES["Roomba"][0]),
+                    "font-weight": "700"
+                } if room[0].startswith("!") else {})
+            ),
             html.Span(room[1], style={
                 "color": (BUILDING_PALETTES[room[1]][0] if room[1] in BUILDING_PALETTES else BUILDING_PALETTES["Roomba"][0]),
                 "font-weight": "700"}
