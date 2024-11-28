@@ -139,6 +139,7 @@ class DatabaseManager:
         res: "list[tuple[Events, int]]" = []
         query_word_set = set([w.lower() for w in query.split()])
         group = re.search(r"[бмс]\d\d-\d\d\d", query.lower())
+        text="&*!@$&!@^$*"
         if group:
             self.counter_plus_one("group_in_query")
             text = group.group(0)
@@ -176,7 +177,7 @@ class DatabaseManager:
             events_word_set.add(WEEKDAYS[event.day].lower())
             if query_word_set & events_word_set or query.lower() in event.description.lower():
                 match_count = len(query_word_set & events_word_set)
-                res.append((event, match_count))
+                res.append((event, match_count + int(text in event.description.lower())))
         res.sort(key=lambda x: x[1], reverse=True)
         return res
     
