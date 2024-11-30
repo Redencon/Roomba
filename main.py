@@ -2,7 +2,7 @@ import flask
 from flask import request, redirect, url_for, session, render_template, jsonify, make_response
 import secrets
 from dash import Dash, dcc, html, Input, Output, callback, State
-import dash
+import diskcache as dc
 import dash_bootstrap_components as dbc
 import os
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -18,7 +18,7 @@ from sql import DatabaseManager, Events, Passwords, WEEKDAYS
 import requests
 import traceback
 from new_features import new_features
-# import logging
+import logging
 from functools import wraps
 import sys
 
@@ -38,6 +38,9 @@ with open("keys/SQL") as f:
 server.config['SQLALCHEMY_DATABASE_URI'] = sql_url
 server.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 dbm = DatabaseManager(server)
+
+# Initialize Redis client
+cache = dc.Cache("cache")
 
 with open("keys/DEBUG") as f:
     IS_DEBUG = f.read().strip() == "True"
@@ -108,6 +111,22 @@ def track_usage(name):
     return decorator
 
 
+def cache_charts(key, charts: "list[go.Figure]"):
+    # Serialize the charts to JSON and store in Redis
+    try:
+        cache.set(key, [fig.to_json() for fig in charts])
+    except Exception as e:
+        return traceback.format_exc()
+
+
+def get_cached_charts(key):
+    # Retrieve the cached charts from Redis
+    cached_charts = cache.get(key)
+    if cached_charts:
+        return [dcc.Graph(figure=json.loads(fig), style={"min-width": "900px", "width": "100%"}) for fig in json.loads(cached_charts)]
+    return None
+
+
 def filter_events(events, date):
     date_proper = dtt.datetime.strptime(date, '%Y-%m-%d').strftime('%d.%m')
     date_to_check = dtt.datetime.strptime(date, '%Y-%m-%d')
@@ -153,10 +172,10 @@ def process_room_name(room_name: str):
         return f"<b>{room_name[1:]}</b>"
     return room_name
 
-def generate_gantt_charts(df, building, is_today=False, theme="navy"):
+def generate_gantt_charts(df, building, theme="navy"):
     df = df[df['building'] == building]
     if df.empty:
-        return dcc.Graph(figure=NULL_PLOT, style={"width": "100%", "height": "210px"})
+        return [go.Figure(NULL_PLOT)]
     rooms = sorted(dbm.get_all_rooms(building))
     room_groups = []
     i = 0
@@ -183,8 +202,8 @@ def generate_gantt_charts(df, building, is_today=False, theme="navy"):
                 })
                 df_groups[i] = pd.concat([df_groups[i], rdf.to_frame().T], ignore_index=True)
     line_dash_map = {"True": "", "False": "x"}
-    graphs = []
-    while len(graphs) < len(room_groups):
+    figs = []
+    while len(figs) < len(room_groups):
         try:
             for i, df_group in enumerate(df_groups):
                 fig = px.timeline(
@@ -225,42 +244,41 @@ def generate_gantt_charts(df, building, is_today=False, theme="navy"):
                     margin=dict(l=20, r=20, t=40, b=20),
                 )
                 fig.update_layout(height=80 + num_rooms * 45 - (20 if num_rooms == 1 else 0))
-                if is_today:
-                    fig.add_vline(x=pd.to_datetime(dtt.datetime.now().strftime("%H:%M"), format='%H:%M'), line=dict(color="red", width=2))
                 for slot in TIME_SLOTS:
                     start = pd.to_datetime(slot[0], format='%H:%M')
                     finish = pd.to_datetime(slot[1], format='%H:%M')
                     fig.add_vline(x=start, line=dict(color="gray", dash="dash", width=1))
                     fig.add_vline(x=finish, line=dict(color="gray", dash="dash", width=1))
-                graphs.append(dcc.Graph(figure=fig, style={"min-width": "900px", "width": "100%"}))
+                figs.append(fig)
         except ValueError as e:
-            graphs = []
+            figs = []
             # logging.error(e)
             continue
         else:
             break
-    return graphs
+    return figs
 
 
 for building in BUILDINGS:
     @callback(
         Output(f'gantt-chart-{building}', 'children'),
         Input('date-picker', 'date'),
-        Input('interval', 'n_intervals'),
         Input('theme-switch', 'value')
     )
-    def update_gantt_charts(selected_date, _, theme, building=building):
+    def update_gantt_charts(selected_date, theme, building=building):
+        cache_key = f"{building}_{selected_date}_{theme}"
+        # cached_charts = get_cached_charts(cache_key)
+        # if cached_charts:
+        #     return [dcc.Graph(figure=fig, style={"min-width": "900px", "width": "100%"}) for fig in cached_charts]
+        
         events = dbm.get_events(selected_date)
         filtered_df = filter_events(events, selected_date)
-        charts = generate_gantt_charts(filtered_df, building, selected_date == pd.to_datetime('today').strftime('%Y-%m-%d'), theme)
-        return charts
+        charts = generate_gantt_charts(filtered_df, building, theme)
+        e = cache_charts(cache_key, charts)
+        if e:
+            return e
+        return [dcc.Graph(figure=fig, style={"min-width": "900px", "width": "100%"}) for fig in charts]
 
-@callback(
-    Output("interval", "interval"),
-    Input("date-picker", "date"),
-)
-def disable_interval(selected_date):
-    return 180000 if selected_date == pd.to_datetime('today').strftime('%Y-%m-%d') else 60*60*1000
 
 @callback(
     Output("scripts", "children"),
@@ -453,7 +471,6 @@ application.layout = html.Div([
                     dcc.Store(id=f"store-{building}", data={"is_open": True})
                     for building in BUILDINGS
                 ], id="stores"),
-                dcc.Interval(id='interval', interval=180000, n_intervals=0),
                 dbc.Col(html.Div([
                     dbc.Card([
                         dbc.CardHeader(
