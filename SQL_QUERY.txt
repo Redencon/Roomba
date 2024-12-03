@@ -1,0 +1,16 @@
+UPDATE `events` SET `room`="!202" WHERE room="202" AND building="Квант";
+UPDATE `events` SET `room`="!239" WHERE room="239" AND building="Квант";
+UPDATE `events` SET `room`="!Акт.зал" WHERE room="Акт.зал" AND building="ЛК";
+UPDATE `events` SET `room`="!Б.Физ." WHERE room="Б.Физ" AND building="ЛК";
+UPDATE `events` SET `room`="!Б.Хим." WHERE room="Б.Хим" AND building="ЛК";
+UPDATE `events` SET `room`="!113" WHERE room="113" AND building="ГК";
+UPDATE `events` SET `room`="!117" WHERE room="117" AND building="ГК";
+UPDATE `events` SET `room`="!123" WHERE room="123" AND building="ГК";
+UPDATE `events` SET `room`="!430" WHERE room="430" AND building="ГК";
+UPDATE `events` SET `room`="!432" WHERE room="432" AND building="ГК";
+UPDATE `events` SET `room`="!532" WHERE room="532" AND building="ГК";
+UPDATE `events` SET `room`="!115" WHERE room="115" AND building="КПМ";
+UPDATE `events` SET `room`="!4.18-5.17" WHERE room="4.18-5.17" AND building="Цифра";
+UPDATE `events` SET `room`="4.24" WHERE room="424" AND building="Арктика";
+UPDATE `events` SET `room`="4.25" WHERE room="425" AND building="Арктика";
+UPDATE `events` SET `room`="!107" WHERE room="107" AND building="БК";

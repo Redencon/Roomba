@@ -114,7 +114,7 @@ def track_usage(name):
 def cache_charts(key, charts: "list[go.Figure]"):
     # Serialize the charts to JSON and store in Redis
     try:
-        cache.set(key, [fig.to_json() for fig in charts])
+        cache.set(key, [fig.to_plotly_json() for fig in charts])
     except Exception as e:
         return traceback.format_exc()
 
@@ -171,6 +171,13 @@ def process_room_name(room_name: str):
     if room_name.startswith('!'):
         return f"<b>{room_name[1:]}</b>"
     return room_name
+
+@cache.memoize(expire=60*60*48)
+def get_event_charts(selected_date, building, theme="navy"):
+    events = dbm.get_events(selected_date)
+    filtered_df = filter_events(events, selected_date)
+    charts = generate_gantt_charts(filtered_df, building, theme)
+    return charts
 
 def generate_gantt_charts(df, building, theme="navy"):
     df = df[df['building'] == building]
@@ -266,17 +273,13 @@ for building in BUILDINGS:
         Input('theme-switch', 'value')
     )
     def update_gantt_charts(selected_date, theme, building=building):
-        cache_key = f"{building}_{selected_date}_{theme}"
-        # cached_charts = get_cached_charts(cache_key)
-        # if cached_charts:
-        #     return [dcc.Graph(figure=fig, style={"min-width": "900px", "width": "100%"}) for fig in cached_charts]
-        
-        events = dbm.get_events(selected_date)
-        filtered_df = filter_events(events, selected_date)
-        charts = generate_gantt_charts(filtered_df, building, theme)
-        e = cache_charts(cache_key, charts)
-        if e:
-            return e
+        charts = get_event_charts(selected_date, building, theme)
+        if selected_date == dtt.datetime.now().strftime('%Y-%m-%d'):
+            print("Adding current time line")
+            now = dtt.datetime.strptime(dtt.datetime.now().strftime('%H:%M'), '%H:%M')
+            for chart in charts:
+                chart: go.Figure
+                chart.add_vline(x=now, line=dict(color="red", width=2))
         return [dcc.Graph(figure=fig, style={"min-width": "900px", "width": "100%"}) for fig in charts]
 
 
@@ -587,6 +590,17 @@ def login():
 @track_usage("request_password_page")
 def request_password():
     if request.method == 'POST':
+        address = request.form.get('email')
+        if address:
+            if "@" in address:
+                return render_template("request-login.html", error="Неверный формат. Напишите только часть до @.")
+            
+            password = dbm.generate_password()
+            proper_address = address+"@phystech.edu"
+            send_email(proper_address, password)
+            
+            session['last_request'] = dtt.datetime.now()
+            return redirect(url_for('login'))
         data = request.json
         token = data.get('token')
         try:
@@ -616,16 +630,6 @@ def request_password():
                     return render_template("request-login.html", error="Слишком много запросов. Попробуйте позже.")
         except Exception as e:
             return jsonify({"status": "error", "message": traceback.format_exc()})
-        address = request.form.get('email')
-        if "@" in address:
-            return render_template("request-login.html", error="Неверный формат. Напишите только часть до @.")
-        
-        password = dbm.generate_password()
-        proper_address = address+"@phystech.edu"
-        send_email(proper_address, password)
-        
-        session['last_request'] = dtt.datetime.now()
-        return redirect(url_for('login'))
     return render_template('request-login.html')
 
 @server.route('/oauth')
