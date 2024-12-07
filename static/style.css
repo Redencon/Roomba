@@ -349,3 +349,25 @@ input {
     margin-left: 0;
     margin-right: 0;
 }
+
+.status-free {
+    background-color: var(--bs-success-bg-subtle);
+    cursor: pointer;
+}
+
+.status-busy {
+    background-color: var(--bs-danger-bg-subtle);
+    cursor: not-allowed;
+}
+
+.status-lecture {
+    background-color: var(--bs-dark-bg-subtle);
+    cursor: not-allowed;
+}
+
+.status-marked {
+    background-color: var(--bs-warning-bg-subtle);
+    cursor: pointer;
+}
+
+

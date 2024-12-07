@@ -1,15 +1,24 @@
 from sqlalchemy.orm import DeclarativeBase, Session, Mapped, mapped_column
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, func
 from datetime import datetime, timedelta
 from secrets import token_urlsafe
 from hashlib import sha256
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
 import re
+from typing import Literal
 
+
+ROOM_STATUS = Literal["free", "marked", "busy", "lecture"]
 
 DATE_PATTERN = re.compile(r"\d{2}\.\d{2}")
 DATE_RANGE_PATTERN = re.compile(r"\d{2}\.\d{2}-\d{2}\.\d{2}")
+
+RESET_TIMES = [
+    "09:00", "10:25", "12:10", "13:45", "15:20", "16:55", "18:30", "20:00",
+    "22:00", "00:01", "01:30", "03:00", "04:30", "06:00", "07:30"
+]
+RESET_TIMES_DTT = [datetime.strptime(t, '%H:%M') for t in RESET_TIMES]
 
 WEEKDAYS = {
     1: "ПН",
@@ -62,12 +71,23 @@ class Counter(db.Model):
     count: Mapped[int]
 
 
+class Room(db.Model):
+    id: Mapped[int] = mapped_column(primary_key=True)
+    building: Mapped[str]
+    room: Mapped[str]
+    status: Mapped[str]
+    status_description: Mapped[str]
+    capacity: Mapped[int] = mapped_column(default=9)
+    equipment: Mapped[str] = mapped_column(default="")
+
+
 class DatabaseManager:
     EXPIRY_PERIOD = timedelta(days=5)
 
     def __init__(self, app: Flask):
         self.db = db
         db.init_app(app)
+        self.app = app
         with app.app_context():
             db.create_all()
 
@@ -110,28 +130,28 @@ class DatabaseManager:
         expiration_date = datetime.now() + self.EXPIRY_PERIOD
         password = token_urlsafe(6)
         password_hash = sha256(password.encode("utf-8")).hexdigest()
-        db.session.add(Passwords(password_hash=password_hash, expiration_date=expiration_date, used=False))
-        db.session.commit()
+        self.db.session.add(Passwords(password_hash=password_hash, expiration_date=expiration_date, used=False))
+        self.db.session.commit()
         print(password)
         return password
 
     def clear_expired_passwords(self):
-        pwd = db.session.execute(
+        pwd = self.db.session.execute(
             select(Passwords)
             .where(Passwords.expiration_date < datetime.now())
         ).scalars().all()
         for p in pwd:
-            db.session.delete(p)
-        db.session.commit()
+            self.db.session.delete(p)
+        self.db.session.commit()
 
     def get_events(self, date: str):
         date_dtt = datetime.strptime(date, '%Y-%m-%d')
         weekday = date_dtt.weekday() + 1
-        res = db.session.scalars(select(Events).where(Events.day == weekday)).all()
+        res = self.db.session.scalars(select(Events).where(Events.day == weekday)).all()
         return list(res)
 
     def get_all_rooms(self, building: str):
-        res = db.session.scalars(select(Events.room).where(Events.building==building).distinct()).all()
+        res = self.db.session.scalars(select(Room.room).where(Room.building==building)).all()
         return list(res)
 
     def get_events_by_query(self, query: str):
@@ -223,3 +243,151 @@ class DatabaseManager:
 
     def get_all_counters(self):
         return [(c.name, c.count) for c in db.session.scalars(select(Counter)).all()]
+    
+    def fill_rooms(self):
+        with self.app.app_context():
+            prevrooms = db.session.scalars(select(Room)).all()
+            if prevrooms:
+                for room in prevrooms:
+                    db.session.delete(room)
+                db.session.commit()
+            rooms = db.session.scalars(select(Events.room+" "+Events.building).distinct()).all()
+            print(len(rooms))
+            for room in rooms:
+                try:
+                    *r, b = room.split()
+                    r  = "_".join(r)
+                except ValueError:
+                    print(room)
+                    raise
+                db.session.add(Room(building=b, room=r, status="free", status_description=""))
+            db.session.commit()
+
+    def external_room_status_update(self):
+        with self.app.app_context():
+            self.set_room_statuses()
+
+    def get_today_events(self, room: str, building: str):
+        now = datetime.now()
+        weekday = now.weekday() + 1
+        events = db.session.scalars(
+            select(Events)
+            .where(Events.room == room)
+            .where(Events.building == building)
+            .where(Events.day == weekday)
+        ).all()
+        return events
+
+    def set_room_statuses(self):
+        MAX_LEN = 45
+        rooms = db.session.scalars(select(Room)).all()
+        now = datetime.strptime(datetime.now().strftime('%H:%M'), '%H:%M')
+        for room in rooms:
+            room_events = db.session.scalars(
+                select(Events)
+                .where(Events.room == room.room)
+                .where(Events.building == room.building)
+                .where(Events.day == datetime.today().weekday() + 1)
+            ).all()
+            for event in room_events:
+                start_time = datetime.strptime(event.time_start, '%H:%M')
+                for i in range(len(RESET_TIMES_DTT) - 1):
+                    if RESET_TIMES_DTT[i] <= start_time < RESET_TIMES_DTT[i + 1]:
+                        start_time = RESET_TIMES_DTT[i]
+                        break
+                finish_time = datetime.strptime(event.time_finish, '%H:%M')
+                if start_time <= now <= finish_time:
+                    room.status = "busy"
+                    long_description = "..." if len(event.description) > MAX_LEN else ""
+                    room.status_description = event.description[:MAX_LEN] + long_description
+                    break
+            else:
+                start_times = sorted([datetime.strptime(event.time_start, '%H:%M') for event in room_events])
+                closest = None
+                for st in start_times:
+                    if st <= now:
+                        continue
+                    closest = st
+                    break
+                desc = "до " + closest.strftime('%H:%M') if closest else "до конца дня"
+                room.status_description = desc
+                if "!" in room.room:
+                    room.status = "lecture"
+                else:
+                    room.status = "free"
+        db.session.commit()
+
+    def get_room_statuses(self):
+        return db.session.scalars(select(Room)).all()
+
+    def get_room_status(self, building: str, room: str):
+        all_roooms = self.get_all_rooms(building)
+        if room not in all_roooms:
+            raise ValueError("Room not found")
+        return db.session.scalars(
+            select(Room)
+            .where(Room.building == building)
+            .where(Room.room == room)
+        ).one()
+
+    def set_room_status(self, building: str, room: str, status: ROOM_STATUS, description: str):
+        room_status = db.session.scalars(
+            select(Room)
+            .where(Room.building == building)
+            .where(Room.room == room)
+        ).one()
+        if room_status.status in ["busy", "lecture"]:
+            raise ValueError("Room is busy or lecture, cannot change status")
+        if status == "marked" and room_status.status == "marked":
+            raise ValueError("Room is already marked")
+        room_status.status = status
+        room_status.status_description = description
+        db.session.commit()
+        return room_status
+
+    def room_status_plus_one(self, building: str, room: str):
+        room_status = db.session.scalars(
+            select(Room)
+            .where(Room.building == building)
+            .where(Room.room == room)
+        ).one()
+        if room_status.status in ["busy", "lecture", "free"]:
+            raise ValueError("Room is busy, free or lecture, cannot change status")
+        desc = room_status.status_description
+        plim, unav, loud = desc.split("|")
+        plim = str(int(plim) + 1)
+        desc = f"{plim}|{unav}|{loud}"
+        room_status.status_description = desc
+        db.session.commit()
+        return room_status
+
+    def unmark_room(self, building: str, room: str):
+        now = datetime.now()
+        now_t = datetime.strptime(now.strftime('%H:%M'), '%H:%M')
+        events_starts = db.session.scalars(
+            select(Events.time_start)
+            .where(Events.room == room)
+            .where(Events.building == building)
+            .where(Events.day == now.weekday() + 1)
+        ).all()
+        room_status = db.session.scalars(
+            select(Room)
+            .where(Room.building == building)
+            .where(Room.room == room)
+        ).one()
+        if room_status.status in ["busy", "lecture"]:
+            raise ValueError("Room is busy or lecture, cannot change status")
+        start_times = sorted([datetime.strptime(st, '%H:%M') for st in events_starts])
+        for st in start_times:
+            if st <= now_t:
+                continue
+            closest = st
+            break
+        else:
+            closest = None
+        desc = "до " + closest.strftime('%H:%M') if closest else "до конца дня"
+        room_status.status_description = desc
+        room_status.status = "free"
+        return room_status
+        
+        
