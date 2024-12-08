@@ -362,12 +362,12 @@ layout = dbc.Container([
                 dbc.Row([
                     dbc.Col(dbc.InputGroup([
                         dbc.InputGroupText(html.I(className="bi bi-people")),
-                        dbc.Input(id="modal-headcount", type="number", value=1, min=1, max=40, style={"height": "100%"}),
-                    ])),
+                        dbc.Input(id="modal-headcount", type="number", value=1, min=1, max=40, style={"height": "100%", "min-width": "50px"}),
+                    ], style={"flex-wrap": "nowrap"})),
                     dbc.Col(dbc.InputGroup([
                         dbc.InputGroupText(html.I(className="bi bi-slash-circle")),
                         dbc.InputGroupText(dbc.Checkbox(id="modal-dont-come"),),
-                    ])),
+                    ], style={"flex-wrap": "nowrap"})),
                     dbc.Col(html.Div(dbc.RadioItems(
                         id="modal-loud",
                         class_name="btn-group",
