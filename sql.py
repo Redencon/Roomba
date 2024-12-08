@@ -204,7 +204,7 @@ class DatabaseManager:
         return res
     
     def get_free_rooms(self, time: str, date: str):
-        date_dtt = datetime.strptime(date, '%Y-%m-%d')
+        date_dtt = datetime.strptime(datetime.strptime(date, '%Y-%m-%d').strftime("%d.%m"), "%d.%m")
         weekday = date_dtt.weekday() + 1
         time_dtt = datetime.strptime(time, '%H:%M')
         res = db.session.scalars(select(Events).where(Events.day == weekday)).all()
@@ -282,6 +282,8 @@ class DatabaseManager:
         MAX_LEN = 45
         rooms = db.session.scalars(select(Room)).all()
         now = datetime.strptime(datetime.now().strftime('%H:%M'), '%H:%M')
+        today = datetime.today().strftime("%d.%m")
+        today_dtt = datetime.strptime(today, "%d.%m")
         for room in rooms:
             room_events = db.session.scalars(
                 select(Events)
@@ -296,6 +298,16 @@ class DatabaseManager:
                         start_time = RESET_TIMES_DTT[i]
                         break
                 finish_time = datetime.strptime(event.time_finish, '%H:%M')
+                dates = re.findall(DATE_PATTERN, event.description)
+                date_range = re.search(DATE_RANGE_PATTERN, event.description)
+                if date_range:
+                    date_start, date_finish = date_range.group().split('-')
+                    start_dtt = datetime.strptime(date_start, '%d.%m')
+                    finish_dtt = datetime.strptime(date_finish, '%d.%m')
+                    if not start_dtt <= today_dtt <= finish_dtt:
+                        continue
+                if dates and today not in dates:
+                    continue
                 if start_time <= now <= finish_time:
                     room.status = "busy"
                     long_description = "..." if len(event.description) > MAX_LEN else ""
