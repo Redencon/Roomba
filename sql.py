@@ -7,6 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
 import re
 from typing import Literal
+from enum import Enum
 
 
 ROOM_STATUS = Literal["free", "marked", "busy", "lecture"]
@@ -19,6 +20,14 @@ RESET_TIMES = [
     "22:00", "00:01", "01:30", "03:00", "04:30", "06:00", "07:30"
 ]
 RESET_TIMES_DTT = [datetime.strptime(t, '%H:%M') for t in RESET_TIMES]
+
+ROOM_TYPE = Literal["lecture", "seminar", "chair", "lab"]
+
+class RoomType(Enum):
+    lecture = 0
+    seminar = 1
+    chair = 2
+    lab = 3
 
 WEEKDAYS = {
     1: "ПН",
@@ -75,6 +84,7 @@ class Room(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     building: Mapped[str]
     room: Mapped[str]
+    room_type: Mapped[RoomType] = mapped_column(default="seminar")
     status: Mapped[str]
     status_description: Mapped[str]
     capacity: Mapped[int] = mapped_column(default=9)
@@ -246,6 +256,8 @@ class DatabaseManager:
     
     def fill_rooms(self):
         with self.app.app_context():
+            Base.metadata.drop_all(bind=db.engine, tables=[Room.__table__])
+            Base.metadata.create_all(bind=db.engine, tables=[Room.__table__])
             prevrooms = db.session.scalars(select(Room)).all()
             if prevrooms:
                 for room in prevrooms:
