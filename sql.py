@@ -10,7 +10,7 @@ from typing import Literal
 from enum import Enum
 
 
-ROOM_STATUS = Literal["free", "marked", "busy", "lecture"]
+ROOM_STATUS = Literal["free", "marked", "busy", "lecture", "computer", "chair", "lab"]
 
 DATE_PATTERN = re.compile(r"\d{2}\.\d{2}")
 DATE_RANGE_PATTERN = re.compile(r"\d{2}\.\d{2}-\d{2}\.\d{2}")
@@ -28,6 +28,7 @@ class RoomType(Enum):
     seminar = 1
     chair = 2
     lab = 3
+    computer = 4
 
 WEEKDAYS = {
     1: "ПН",
@@ -335,8 +336,8 @@ class DatabaseManager:
                     break
                 desc = "до " + closest.strftime('%H:%M') if closest else "до конца дня"
                 room.status_description = desc
-                if "!" in room.room:
-                    room.status = "lecture"
+                if room.room_type.name != "seminar":
+                    room.status = room.room_type.name
                 else:
                     room.status = "free"
         db.session.commit()
@@ -360,10 +361,8 @@ class DatabaseManager:
             .where(Room.building == building)
             .where(Room.room == room)
         ).one()
-        if room_status.status in ["busy", "lecture"]:
+        if room_status.status != "free":
             raise ValueError("Room is busy or lecture, cannot change status")
-        if status == "marked" and room_status.status == "marked":
-            raise ValueError("Room is already marked")
         room_status.status = status
         room_status.status_description = description
         db.session.commit()
@@ -375,7 +374,7 @@ class DatabaseManager:
             .where(Room.building == building)
             .where(Room.room == room)
         ).one()
-        if room_status.status in ["busy", "lecture", "free"]:
+        if room_status.status != "marked":
             raise ValueError("Room is busy, free or lecture, cannot change status")
         desc = room_status.status_description
         plim, unav, loud = desc.split("|")
@@ -399,7 +398,7 @@ class DatabaseManager:
             .where(Room.building == building)
             .where(Room.room == room)
         ).one()
-        if room_status.status in ["busy", "lecture"]:
+        if room_status.status != "marked":
             raise ValueError("Room is busy or lecture, cannot change status")
         start_times = sorted([datetime.strptime(st, '%H:%M') for st in events_starts])
         for st in start_times:

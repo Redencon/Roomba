@@ -138,6 +138,8 @@ clientside_callback(
             "free": "bi bi-unlock",
             "busy": "bi bi-lock",
             "lecture": "bi bi-shield",
+            "chair": "bi bi-shield",
+            "computer": "bi bi-shield",
             "marked": "bi bi-pencil"
         }[state];
         const statusText = {
@@ -145,14 +147,17 @@ clientside_callback(
             "busy": "Занятие",
             "lecture": "Лекционная",
             "marked": "Занято",
+            "chair": "Кафедральная",
+            "computer": "Компьютерная"
         }[state];
         const statusClass = {
             "free": "status-free",
             "busy": "status-busy",
             "lecture": "status-lecture",
-            "marked": "status-marked",
+            "chair": "status-lecture",
+            "computer": "status-lecture",
+            "marked": "status-marked"
         }[state];
-        
         return [desc, iconClass, statusText, statusClass];
     }
     """,
@@ -225,15 +230,20 @@ def restart_toast(_, __):
     Input("refresh-button", "n_clicks"),
     Input("toast-refresh", "n_clicks"),
     State({"type": "room-card-header", "index": MATCH}, "children"),
+    State({"type": "room-card-store", "index": MATCH}, "data"),
     prevent_initial_call=True,
 )
-def update_rooms(_, __, rooms):
+def update_rooms(_, __, rooms, data):
     room, building = rooms.split(" ")
     status = dbm.get_room_status(building, room)
     st = status.status
     ds = status.status_description
+    if st not in ["lecture", "chair", "computer"]:
+        print(st, ds)
     ret = {"status": st, "desc": ds}
-    return ret
+    if ret != data:
+        return ret
+    return no_update
 
 # @callback(
 #     Output("refresh-button", "n_clicks"),
