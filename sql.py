@@ -399,6 +399,7 @@ class DatabaseManager:
             .where(Room.room == room)
         ).one()
         if room_status.status != "marked":
+            print("Error")
             raise ValueError("Room is busy or lecture, cannot change status")
         start_times = sorted([datetime.strptime(st, '%H:%M') for st in events_starts])
         for st in start_times:
@@ -411,6 +412,8 @@ class DatabaseManager:
         desc = "до " + closest.strftime('%H:%M') if closest else "до конца дня"
         room_status.status_description = desc
         room_status.status = "free"
+        db.session.commit()
+        print(room_status.status, room_status.status_description)
         return room_status
         
         

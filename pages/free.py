@@ -238,8 +238,6 @@ def update_rooms(_, __, rooms, data):
     status = dbm.get_room_status(building, room)
     st = status.status
     ds = status.status_description
-    if st not in ["lecture", "chair", "computer"]:
-        print(st, ds)
     ret = {"status": st, "desc": ds}
     if ret != data:
         return ret
@@ -259,6 +257,7 @@ def update_rooms(_, __, rooms, data):
     Output("modal", "is_open"),
     Output("modal-room-name", "children"),
     Output("modal-mark-room", "style"),
+    Output("modal-remove-div", "style"),
     Output("modal-remove", "style"),
     Output("modal-occupy", "style"),
     Output("modal-p1", "style"),
@@ -280,14 +279,14 @@ def open_modal(a, headers, ids):
     rb = room + " " + building
     print(f"Clicked! {rb}")
     if all([n < 2 for n in a]):
-        return tuple([no_update]*7)
+        return tuple([no_update]*8)
     status = dbm.get_room_status(building, room)
     if status.status == "free":
-        return True, rb, {"display": "block"}, {"display": "none"}, {"display": "block"}, {"display": "none"}, event_div
+        return True, rb, {"display": "block"}, {"display": "none"}, {"display": "none"}, {"display": "block"}, {"display": "none"}, event_div
     elif status.status == "marked":
-        return True, rb, {"display": "none"}, {"display": "block"}, {"display": "none"}, {"display": "block"}, event_div
+        return True, rb, {"display": "none"}, {"display": "block"}, {"display": "block"}, {"display": "none"}, {"display": "block"}, event_div
     else:
-        return tuple([no_update]*7)
+        return tuple([no_update]*8)
 
 @callback(
     Output("toast", "is_open"),
@@ -394,7 +393,7 @@ layout = dbc.Container([
             ], id="modal-mark-room", style={"display": "none"}),
             html.Div([
                 dbc.Alert("Вы точно хотите удалить отметку?", color="danger"),
-            ], id="modal-remove", style={"display": "none"}),
+            ], id="modal-remove-div", style={"display": "none"}),
         ]),
         dbc.ModalFooter([
             dbc.Button("Занять", id="modal-occupy", color="primary", style={"display": "none"}, class_name="col-auto"),
