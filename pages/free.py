@@ -286,7 +286,7 @@ def open_modal(a, headers, ids):
     elif status.status == "marked":
         return True, rb, {"display": "none"}, {"display": "block"}, {"display": "block"}, {"display": "none"}, {"display": "block"}, event_div
     else:
-        return tuple([no_update]*8)
+        return True, rb, {"display": "none"}, {"display": "none"}, {"display": "none"}, {"display": "none"}, {"display": "none"}, event_div
 
 @callback(
     Output("toast", "is_open"),
@@ -308,10 +308,10 @@ layout = dbc.Container([
     ),
     dbc.Row(
         [
-            # dbc.Col(
-            #     dbc.Button("Добавить данные", id="data-button", className="btn btn-primary"),
-            #     class_name="col-auto"
-            # ),
+            dbc.Col(
+                html.P("Для того чтобы отметить аудиторию как занятую, нажмите на свободную аудиторию."),
+                class_name="col-auto text-left"
+            ),
             dbc.Col(
                 dbc.Button("Обновить", id="refresh-button", className="btn btn-primary"),
                 class_name="col-auto"

@@ -98,7 +98,7 @@ def generate_gantt_charts(df, building, theme="navy"):
     df = df[df['building'] == building]
     if df.empty:
         return [go.Figure(NULL_PLOT)]
-    rooms = sorted(dbm.get_all_rooms(building))
+    rooms = sorted(dbm.get_rooms_gantt(building))
     room_groups = []
     i = 0
     for room in rooms:

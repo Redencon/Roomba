@@ -160,6 +160,10 @@ class DatabaseManager:
         weekday = date_dtt.weekday() + 1
         res = self.db.session.scalars(select(Events).where(Events.day == weekday)).all()
         return list(res)
+    
+    def get_rooms_gantt(self, building: str):
+        res = self.db.session.scalars(select(Events.room).where(Events.building==building).distinct()).all()
+        return list(res)
 
     def get_all_rooms(self, building: str):
         res = self.db.session.scalars(select(Room.room).where(Room.building==building)).all()
