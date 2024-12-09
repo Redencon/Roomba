@@ -36,7 +36,7 @@ ISO9 = {
     "э": "e", "ю": "yu", "я": "ya"
 }
 
-BUILDINGS_ROOMS = BUILDINGS[:-1]
+BUILDINGS_ROOMS = BUILDINGS[:1]
 
 MARK_DISCLAIMER = html.Div([
     html.P(" ".join([
@@ -117,7 +117,7 @@ for building in BUILDINGS_ROOMS:
 
 clientside_callback(
     """
-    function(status) {
+    function(status, but) {
         const state = status.status;
         let desc = status.desc;
         if (state === "marked") {
@@ -166,6 +166,7 @@ clientside_callback(
     Output({"type": "room-status", "index": MATCH}, "children"),
     Output({"type": "room-card", "index": MATCH}, "className"),
     Input({"type": "room-card-store", "index": MATCH}, "data"),
+    Input("refresh-button", "n-clicks")
 )
 
 
@@ -231,7 +232,6 @@ def restart_toast(_, __):
     Input("toast-refresh", "n_clicks"),
     State({"type": "room-card-header", "index": MATCH}, "children"),
     State({"type": "room-card-store", "index": MATCH}, "data"),
-    prevent_initial_call=True,
 )
 def update_rooms(_, __, rooms, data):
     room, building = rooms.split(" ")
