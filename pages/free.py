@@ -226,22 +226,26 @@ def restart_toast(_, __):
     return False, False, 0
 
 
+# Rewrite with no MATCH
 @callback(
-    Output({"type": "room-card-store", "index": MATCH}, "data"),
+    Output({"type": "room-card-store", "index": ALL}, "data"),
     Input("refresh-button", "n_clicks"),
     Input("toast-refresh", "n_clicks"),
-    State({"type": "room-card-header", "index": MATCH}, "children"),
-    State({"type": "room-card-store", "index": MATCH}, "data"),
+    State({"type": "room-card-header", "index": ALL}, "children"),
+    State({"type": "room-card-store", "index": ALL}, "data"),
 )
 def update_rooms(_, __, rooms, data):
-    room, building = rooms.split(" ")
-    status = dbm.get_room_status(building, room)
-    st = status.status
-    ds = status.status_description
-    ret = {"status": st, "desc": ds}
-    if ret != data:
-        return ret
-    return no_update
+    update = []
+    for r, d in zip(rooms, data):
+        room, building = r.split(" ")
+        status = dbm.get_room_status(building, room)
+        st = status.status
+        ds = status.status_description
+        ret = {"status": st, "desc": ds}
+        if ret != d:
+            update.append(ret)
+        update.append(no_update)
+    return update
 
 # @callback(
 #     Output("refresh-button", "n_clicks"),
