@@ -212,6 +212,9 @@ class DatabaseManager:
                     events_word_set.add(event.time_start)
                     break
             events_word_set.add(WEEKDAYS[event.day].lower())
+            abbrv = "".join([word[0].lower() for word in event.description.split() if word.isalpha()])
+            for i in range(1, len(abbrv)):
+                events_word_set.add(abbrv[:i])
             if query_word_set & events_word_set or query.lower() in event.description.lower():
                 match_count = len(query_word_set & events_word_set)
                 res.append((event, match_count + int(text in event.description.lower())))
