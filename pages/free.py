@@ -4,7 +4,7 @@ from dash import html, dcc, Input, Output, State, callback, ALL, MATCH
 from dash import clientside_callback, no_update, callback_context, set_props
 import random
 
-from utils import BUILDINGS, BUILDING_PALETTES, dbm, track_usage, ROOM_STATUS, BUILDINGS_EN
+from utils import BUILDINGS, BUILDING_PALETTES, dbm, track_usage, ROOM_STATUS, BUILDINGS_EN, log
 
 dash.register_page(__name__, "/rooms")
 
@@ -166,7 +166,6 @@ clientside_callback(
     Output({"type": "room-status", "index": MATCH}, "children"),
     Output({"type": "room-card", "index": MATCH}, "className"),
     Input({"type": "room-card-store", "index": MATCH}, "data"),
-    Input("refresh-button", "n-clicks")
 )
 
 
@@ -228,24 +227,27 @@ def restart_toast(_, __):
 
 # Rewrite with no MATCH
 @callback(
-    Output({"type": "room-card-store", "index": ALL}, "data"),
     Input("refresh-button", "n_clicks"),
     Input("toast-refresh", "n_clicks"),
     State({"type": "room-card-header", "index": ALL}, "children"),
     State({"type": "room-card-store", "index": ALL}, "data"),
+    State({"type": "room-card-store", "index": ALL}, "id"),
 )
-def update_rooms(_, __, rooms, data):
-    update = []
-    for r, d in zip(rooms, data):
+@log
+def update_rooms(_, __, rooms, data, indexes):
+    for r, d, i in zip(rooms, data, indexes):
         room, building = r.split(" ")
         status = dbm.get_room_status(building, room)
-        st = status.status
-        ds = status.status_description
+        if not status:
+            st = "busy"
+            ds = "Нет данных"
+        else:
+            st = status.status
+            ds = status.status_description
         ret = {"status": st, "desc": ds}
         if ret != d:
-            update.append(ret)
-        update.append(no_update)
-    return update
+            set_props(i, {'data': ret})
+
 
 # @callback(
 #     Output("refresh-button", "n_clicks"),
@@ -317,7 +319,7 @@ layout = dbc.Container([
                 class_name="col-auto text-left"
             ),
             dbc.Col(
-                dbc.Button("Обновить", id="refresh-button", className="btn btn-primary"),
+                dbc.Button("Обновить", id="refresh-button", className="btn btn-primary", n_clicks=0),
                 class_name="col-auto"
             ),
             dbc.Col(

@@ -2,6 +2,7 @@ from functools import wraps
 from sql import DatabaseManager, ROOM_STATUS, WEEKDAYS
 import flask
 import diskcache as dc
+import traceback
 
 BUILDINGS = [
     'ГК', 'ЛК', 'Квант', 'КПМ', 'Цифра', 'Арктика', 'БК', 'УПМ', 'КМО'
@@ -25,6 +26,17 @@ BUILDING_PALETTES = {
     'КМО': ["#F47742", "#FF9C75", "#B55830"],
     'Roomba': ["#6678B9", "#ED6A66", "#FAB62F"]
 }
+
+def log(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except:
+            with open("/var/www/u2906537/data/www/folegle.ru/report.log", 'w') as f:
+                f.write(traceback.format_exc())
+            raise
+    return wrapper
 
 
 cache = dc.Cache("cache")

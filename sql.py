@@ -360,7 +360,7 @@ class DatabaseManager:
             select(Room)
             .where(Room.building == building)
             .where(Room.room == room)
-        ).one()
+        ).one_or_none()
 
     def set_room_status(self, building: str, room: str, status: ROOM_STATUS, description: str):
         room_status = db.session.scalars(

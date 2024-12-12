@@ -1,5 +1,5 @@
 from flask import request, redirect, url_for, session, render_template, jsonify, make_response
-from dash import Dash, html, page_container, callback, Input, Output, no_update, State
+from dash import Dash, html, page_container, callback, Input, Output, no_update, State, set_props
 from dash import dcc
 import dash_bootstrap_components as dbc
 import os
@@ -15,12 +15,14 @@ import sys
 
 SEARCH_RESULT_LIMIT = 25
 
+def error_handler(err):
+    set_props("error_report", {"children": traceback.format_exception(err)})
 
 GOOGLE = "https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
 application = Dash("Folegle", title="Folegle", server=server, external_stylesheets=[
-    dbc.themes.BOOTSTRAP, GOOGLE, "static/style.css", "static/card_style.css",
+    dbc.themes.BOOTSTRAP, GOOGLE, "static/style.css",
     "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-], use_pages=True)
+], use_pages=True, on_error=error_handler)
 
 with open("keys/DEBUG") as f:
     IS_DEBUG = f.read().strip() == "True"
@@ -125,6 +127,7 @@ application.layout = html.Div([
             "Для связи напишите Folegle в Telegram: ", html.A("@folegle", href="https://t.me/folegle")
         ])
     ], id="new-features-modal", is_open=False, scrollable=True),
+    html.Div(id="error_report"),
     html.Footer(dbc.Container(dbc.Row(dbc.Col(
         html.Div(["Собрано ", html.A("Folegle", href="https://t.me/folegle")," - для ", html.A("МКИ (Студсовета МФТИ)", href="https://t.me/mki_mipt")], className="small m-0")
     ), class_name="align-items-center justify-content-between flex-column flex-sm-row"), className="px-5"), className="bg-white py-1 mt-auto", id="footer"),
