@@ -92,6 +92,10 @@ class Room(db.Model):
     equipment: Mapped[str] = mapped_column(default="")
 
 
+def log_console(s):
+    print(s)
+
+
 class DatabaseManager:
     EXPIRY_PERIOD = timedelta(days=5)
 
@@ -101,12 +105,36 @@ class DatabaseManager:
         self.app = app
         with app.app_context():
             db.create_all()
+        self.logf = log_console
+
+    @staticmethod
+    def event_at_day(event: Events, day: datetime, weekday: int):
+        if weekday != event.day:
+            return False
+        date_str = day.strftime('%d.%m')
+        dates = re.findall(DATE_PATTERN, event.description)
+        date_range = re.search(DATE_RANGE_PATTERN, event.description)
+        if date_range:
+            date_start, date_finish = date_range.group().split('-')
+            start_dtt = datetime.strptime(date_start, '%d.%m')
+            finish_dtt = datetime.strptime(date_finish, '%d.%m')
+            return start_dtt <= day <= finish_dtt
+        if not dates:
+            return True
+        return date_str in dates
+
+    @staticmethod
+    def event_at_time(event: Events, time_dtt: datetime):
+        start_time = datetime.strptime(event.time_start, '%H:%M')
+        finish_time = datetime.strptime(event.time_finish, '%H:%M')
+        return start_time <= time_dtt <= finish_time
 
     def add_password(self, password: Passwords):
         self.clear_expired_passwords()
         self.db.session.add(password)
         self.db.session.commit()
 
+    # ONE-TIME LOGIN
     def check_password(self, password: str):
         if password is None:
             return False
@@ -123,6 +151,7 @@ class DatabaseManager:
             return True
         return False
 
+    # SESSION VERIFICATION
     def verify_password(self, password: str):
         if password is None:
             return False
@@ -136,6 +165,7 @@ class DatabaseManager:
             return True
         return False
 
+    # REGISTRATION
     def generate_password(self):
         self.clear_expired_passwords()
         expiration_date = datetime.now() + self.EXPIRY_PERIOD
@@ -169,6 +199,7 @@ class DatabaseManager:
         res = self.db.session.scalars(select(Room.room).where(Room.building==building)).all()
         return list(res)
 
+    # SEARCH
     def get_events_by_query(self, query: str):
         """Parse search query and return ordered list of events that fully or partially match the query"""
         all_events: "list[Events]" = db.session.scalars(select(Events)).all()
@@ -220,37 +251,29 @@ class DatabaseManager:
                 res.append((event, match_count + int(text in event.description.lower())))
         res.sort(key=lambda x: x[1], reverse=True)
         return res
-    
+
+    # INDEX - FREE ROOMS MODAL
     def get_free_rooms(self, time: str, date: str):
         date_dtt = datetime.strptime(datetime.strptime(date, '%Y-%m-%d').strftime("%d.%m"), "%d.%m")
-        weekday = date_dtt.weekday() + 1
+        weekday = datetime.strptime(date, '%Y-%m-%d').weekday() + 1
         time_dtt = datetime.strptime(time, '%H:%M')
         res = db.session.scalars(select(Events).where(Events.day == weekday)).all()
-        all_rooms = set([
-            (e.room, e.building)
-            for e in res
-        ])
-        def event_at_time(event: Events, time_dtt: datetime, date_dtt: datetime):
-            start_time = datetime.strptime(event.time_start, '%H:%M')
-            finish_time = datetime.strptime(event.time_finish, '%H:%M')
-            date_str = date_dtt.strftime('%d.%m')
-            dates = re.findall(DATE_PATTERN, event.description)
-            date_range = re.search(DATE_RANGE_PATTERN, event.description)
-            if date_range:
-                date_start, date_finish = date_range.group().split('-')
-                start_dtt = datetime.strptime(date_start, '%d.%m')
-                finish_dtt = datetime.strptime(date_finish, '%d.%m')
-                return start_time <= time_dtt <= finish_time and start_dtt <= date_dtt <= finish_dtt
-            if not dates:
-                return start_time <= time_dtt <= finish_time
-            return start_time <= time_dtt <= finish_time and date_str in dates
+        all_rooms = set([(room.room, room.building) for room in db.session.scalars(select(Room)).all()])
+        # print("\n".join(["{} {}".format(*r) for r in all_rooms]))
         busy_rooms = set([
             (event.room, event.building)
-            for event in db.session.scalars(select(Events).where(Events.day == weekday)).all()
-            if event_at_time(event, time_dtt, date_dtt)
+            for event in res
+            if self.event_at_time(event, time_dtt) and self.event_at_day(event, date_dtt, weekday)
         ])
+        # self.logf("\n".join([
+        #     "{} {} {}".format(event.room, event.building, event.description)
+        #     for event in res
+        #     if self.event_at_time(event, time_dtt) and self.event_at_day(event, date_dtt)
+        # ]))
+        self.logf("{}".format(date_dtt.weekday() + 1))
         return sorted(list(all_rooms - busy_rooms), key=lambda x: x[1]+x[0])
 
+    # COUNTERS
     def counter_plus_one(self, name: str):
         counter = db.session.scalars(select(Counter).where(Counter.name == name)).one_or_none()
         if counter:
@@ -261,7 +284,8 @@ class DatabaseManager:
 
     def get_all_counters(self):
         return [(c.name, c.count) for c in db.session.scalars(select(Counter)).all()]
-    
+
+    # PREPARATIONS - CREATE ROOMS
     def fill_rooms(self):
         with self.app.app_context():
             Base.metadata.drop_all(bind=db.engine, tables=[Room.__table__])
@@ -298,6 +322,7 @@ class DatabaseManager:
         ).all()
         return events
 
+    # CRON - UPDATE ROOMS STATUS
     def set_room_statuses(self):
         MAX_LEN = 45
         rooms = db.session.scalars(select(Room)).all()
@@ -352,6 +377,7 @@ class DatabaseManager:
     def get_room_statuses(self):
         return db.session.scalars(select(Room)).all()
 
+    # ROOMS - CARD UPDATES - STATUS
     def get_room_status(self, building: str, room: str):
         all_roooms = self.get_all_rooms(building)
         if room not in all_roooms:
@@ -386,6 +412,25 @@ class DatabaseManager:
         desc = room_status.status_description
         plim, unav, loud = desc.split("|")
         plim = str(int(plim) + 1)
+        desc = f"{plim}|{unav}|{loud}"
+        room_status.status_description = desc
+        db.session.commit()
+        return room_status
+
+    def room_status_minus_one(self, building: str, room: str):
+        room_status = db.session.scalars(
+            select(Room)
+            .where(Room.building == building)
+            .where(Room.room == room)
+        ).one()
+        if room_status.status != "marked":
+            raise ValueError("Room is busy, free or lecture, cannot change status")
+        desc = room_status.status_description
+        plim, unav, loud = desc.split("|")
+        plim = str(int(plim) - 1)
+        if plim == "0":
+            room_status = self.unmark_room(building, room)
+            return room_status
         desc = f"{plim}|{unav}|{loud}"
         room_status.status_description = desc
         db.session.commit()

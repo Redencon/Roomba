@@ -45,3 +45,8 @@
 - [ ] Find a way to reliably access mipt.tech API with my credentials
 - [x] Set up a cron job to run the script every day
 - [ ] Contact miphtech to get better access to the API (if I my methods are not reliable enough)
+
+## Rooms page
+
+- [ ] Add "loading" state for all rooms when button is pushed yet new data is not yet received
+- [ ] Add hints on how to mark

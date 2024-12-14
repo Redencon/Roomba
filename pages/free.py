@@ -202,6 +202,19 @@ def plus_one_room(_, room):
 
 @callback(
     Output("modal", "is_open", allow_duplicate=True),
+    Input("modal-m1", "n_clicks"),
+    State("modal-room-name", "children"),
+    prevent_initial_call=True,
+)
+def minus_one_room(_, room):
+    room, building = room.split()
+    new_status = dbm.room_status_minus_one(building, room)
+    set_props({"type": "room-card-store", "index": room_indexer(room, building)}, {"data": {"status": new_status.status, "desc": new_status.status_description}})
+    return False
+
+
+@callback(
+    Output("modal", "is_open", allow_duplicate=True),
     Input("modal-remove", "n_clicks"),
     State("modal-room-name", "children"),
     prevent_initial_call=True,
@@ -403,6 +416,7 @@ layout = dbc.Container([
         ]),
         dbc.ModalFooter([
             dbc.Button("Занять", id="modal-occupy", color="primary", style={"display": "none"}, class_name="col-auto"),
+            dbc.Button("-1", id="modal-m1", color="primary", style={"display": "none"}, class_name="col-auto"),
             dbc.Button("+1", id="modal-p1", color="primary", style={"display": "none"}, class_name="col-auto"),
             dbc.Button("Удалить", id="modal-remove", color="danger", style={"display": "none"}, class_name="col-auto"),
         ], class_name="flex-row"),

@@ -64,6 +64,25 @@ def open_search(n_clicks):
 
 
 @callback(
+    Output("error-modal", "is_open"),
+    Input("log-button", "n_clicks"),
+    prevent_initial_call=True
+)
+def open_search(_):
+    return True
+
+
+@callback(
+    Output("log-button", "style"),
+    Input("footer-text", "n_clicks"),
+)
+def reveal_debug(n_clicks):
+    if n_clicks > 3:
+        return {"display": "block"}
+    return {"display": "none"}
+
+
+@callback(
     Output("new-features-modal", "is_open"),
     Input("new-features-button", "n_clicks"),
     State("new-features-modal", "is_open"),
@@ -72,6 +91,13 @@ def open_search(n_clicks):
 @track_usage("open_new_features")
 def toggle_new_features(n_clicks, is_open):
     return not is_open
+
+
+def push_log(msg):
+    set_props("function-log", {"children": msg})
+
+
+dbm.logf = push_log
 
 
 application.layout = html.Div([
@@ -107,6 +133,11 @@ application.layout = html.Div([
             id="go-top-button",
             className="menu-toggle",
         ),
+        html.Button(
+            html.I(className="bi bi-wrench"),
+            id="log-button",
+            className="menu-toggle",
+        ),
     ], id="hover-buttons", className="d-flex flex-column", style={
         "position": "fixed",
         "top": "20px",
@@ -127,9 +158,18 @@ application.layout = html.Div([
             "Для связи напишите Folegle в Telegram: ", html.A("@folegle", href="https://t.me/folegle")
         ])
     ], id="new-features-modal", is_open=False, scrollable=True),
+    dbc.Modal([
+        dbc.ModalHeader("Function log"),
+        dbc.ModalBody(html.Code("NONE", id="function-log",  style={"white-space": "pre-wrap"})),
+    ], id="error-modal", is_open=False, scrollable=True, style={"display": "none"}),
     html.Div(id="error_report"),
     html.Footer(dbc.Container(dbc.Row(dbc.Col(
-        html.Div(["Собрано ", html.A("Folegle", href="https://t.me/folegle")," - для ", html.A("МКИ (Студсовета МФТИ)", href="https://t.me/mki_mipt")], className="small m-0")
+        html.Div(
+            ["Собрано ", html.A("Folegle", href="https://t.me/folegle")," - для ", html.A("МКИ (Студсовета МФТИ)", href="https://t.me/mki_mipt")],
+            className="small m-0",
+            id="footer-text",
+            n_clicks=0
+        )
     ), class_name="align-items-center justify-content-between flex-column flex-sm-row"), className="px-5"), className="bg-white py-1 mt-auto", id="footer"),
 ])
 
