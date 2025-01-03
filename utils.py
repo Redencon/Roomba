@@ -27,6 +27,15 @@ BUILDING_PALETTES = {
     'Roomba': ["#6678B9", "#ED6A66", "#FAB62F"]
 }
 
+BUILDING_SECTIONS = [
+    ["ГК"],
+    ["Квант"],
+    ["КПМ", "ЛК"],
+    ["Арктика", "Цифра"],
+    ["УПМ", "БК"],
+    ["КМО"]
+]
+
 def log(func):
     @wraps(func)
     def wrapper(*args, **kwargs):

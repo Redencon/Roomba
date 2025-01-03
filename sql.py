@@ -8,6 +8,7 @@ from flask import Flask
 import re
 from typing import Literal
 from enum import Enum
+import traceback
 
 
 ROOM_STATUS = Literal["free", "marked", "busy", "lecture", "computer", "chair", "lab"]
@@ -227,7 +228,7 @@ class DatabaseManager:
             pattern = re.compile(r"\d{2}\.\d{2}")
             dates = re.findall(pattern, event.description)
             if dates:
-                today = datetime.now()
+                today = datetime.strptime(datetime.now().strftime('%d.%m'), '%d.%m')
                 dates_dtt = [datetime.strptime(date, '%d.%m') for date in dates if not date.startswith('00') and not date.endswith('00')]
                 if dates_dtt:
                     maxdate = max(dates_dtt)
@@ -336,6 +337,7 @@ class DatabaseManager:
                 .where(Events.building == room.building)
                 .where(Events.day == datetime.today().weekday() + 1)
             ).all()
+            events_to_check = []
             for event in room_events:
                 start_time = datetime.strptime(event.time_start, '%H:%M')
                 for i in range(len(RESET_TIMES_DTT) - 1):
@@ -353,13 +355,14 @@ class DatabaseManager:
                         continue
                 if dates and today not in dates:
                     continue
+                events_to_check.append(event)
                 if start_time <= now <= finish_time:
                     room.status = "busy"
                     long_description = "..." if len(event.description) > MAX_LEN else ""
                     room.status_description = event.description[:MAX_LEN] + long_description
                     break
             else:
-                start_times = sorted([datetime.strptime(event.time_start, '%H:%M') for event in room_events])
+                start_times = sorted([datetime.strptime(event.time_start, '%H:%M') for event in events_to_check])
                 closest = None
                 for st in start_times:
                     if st <= now:

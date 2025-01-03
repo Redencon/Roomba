@@ -16,7 +16,8 @@ import sys
 SEARCH_RESULT_LIMIT = 25
 
 def error_handler(err):
-    set_props("error_report", {"children": traceback.format_exception(err)})
+    with open("/var/www/u2906537/data/www/folegle.ru/log.txt", "w") as f:
+        f.write(traceback.format_exception(err))
 
 GOOGLE = "https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
 application = Dash("Folegle", title="Folegle", server=server, external_stylesheets=[
@@ -36,10 +37,19 @@ def search_events(query: str):
     if not query:
         return []
     dbm.counter_plus_one("non_empty_search")
-    events_tuple = dbm.get_events_by_query(query)[:SEARCH_RESULT_LIMIT]
+    events_tuple = dbm.get_events_by_query(query)
+    lenres = html.Small("Найдено {} совпадений".format(len(events_tuple)))
+    events_tuple = events_tuple[:SEARCH_RESULT_LIMIT]
     max_score = max([score for _, score in events_tuple], default=0)
+    
+    
+    if not events_tuple:
+        return [
+            lenres, html.Br(),
+            html.Small("Ничего не найдено")
+        ]
 
-    return [
+    return [lenres]+[
         dbc.Card([
             dbc.CardHeader(" ".join([
                 WEEKDAYS[event.day],"|",
