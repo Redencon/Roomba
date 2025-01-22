@@ -1,5 +1,6 @@
 from sqlalchemy.orm import DeclarativeBase, Session, Mapped, mapped_column
 from sqlalchemy import create_engine, select, func
+import sqlalchemy.exc as sae
 from datetime import datetime, timedelta
 from secrets import token_urlsafe
 from hashlib import sha256
@@ -109,6 +110,19 @@ class DatabaseManager:
         self.logf = log_console
 
     @staticmethod
+    def event_temporary(event: Events):
+        dates = re.findall(DATE_PATTERN, event.description)
+        date_range = re.search(DATE_RANGE_PATTERN, event.description)
+        return bool(dates or date_range)
+
+    @staticmethod
+    def dateless_event(event: Events):
+        res = re.sub(DATE_PATTERN, "", event.description)
+        res = re.sub(DATE_RANGE_PATTERN, "", res)
+        res = re.sub("\s+", " ", res)
+        return res
+
+    @staticmethod
     def event_at_day(event: Events, day: datetime, weekday: int):
         if weekday != event.day:
             return False
@@ -199,6 +213,11 @@ class DatabaseManager:
     def get_all_rooms(self, building: str):
         res = self.db.session.scalars(select(Room.room).where(Room.building==building)).all()
         return list(res)
+
+    def get_event_by_id(self, event_id: int):
+        ev = self.db.session.scalars(select(Events).where(Events.id == event_id)).one_or_none()
+        self.db.session.expunge_all()
+        return ev
 
     # SEARCH
     def get_events_by_query(self, query: str):
@@ -322,59 +341,113 @@ class DatabaseManager:
             .where(Events.day == weekday)
         ).all()
         return events
+    
+    # ADMIN - CHECK ROOM
+    def check_room(self, building: str, room: str, date: str, time_start: str, time_finish: str):
+        day_dtt = datetime.strptime(date, '%Y-%m-%d')
+        weekday = day_dtt.weekday() + 1
+        all_events = db.session.scalars(
+            select(Events)
+            .where(Events.day == weekday)
+            .where(Events.room == room)
+            .where(Events.building == building)
+        ).all()
+        time_start_dtt = datetime.strptime(time_start, '%H:%M')
+        time_finish_dtt = datetime.strptime(time_finish, '%H:%M')
+        flag = False
+        for event in all_events:
+            start_time = datetime.strptime(event.time_start, '%H:%M')
+            finish_time = datetime.strptime(event.time_finish, '%H:%M')
+            dates = re.findall(DATE_PATTERN, event.description)
+            date_range = re.search(DATE_RANGE_PATTERN, event.description)
+            if date_range:
+                date_start, date_finish = date_range.group().split('-')
+                start_dtt = datetime.strptime(date_start, '%d.%m')
+                finish_dtt = datetime.strptime(date_finish, '%d.%m')
+                if not start_dtt <= day_dtt <= finish_dtt:
+                    continue
+            if dates and date not in dates:
+                continue
+            if flag:
+                print(start_time, finish_time, time_start_dtt, time_finish_dtt)
+                flag = False
+            if start_time <= time_start_dtt < finish_time or start_time < time_finish_dtt <= finish_time:
+                return event
+        return None
+    
+    # ADMIN - FIND EVENTS
+    def find_events(self, building: str, room: str, date: str):
+        day_dtt = datetime.strptime(date, '%Y-%m-%d')
+        weekday = day_dtt.weekday() + 1
+        all_events = db.session.scalars(
+            select(Events)
+            .where(Events.day == weekday)
+            .where(Events.room == room)
+            .where(Events.building == building)
+        ).all()
+        all_events = sorted(all_events, key=lambda x: datetime.strptime(x.time_start, "%H:%M"))
+        return [ev for ev  in all_events if self.event_at_day(ev, day_dtt, weekday)]
+    
+    def room_status(self, building: str, room: str, date: str, time: str):
+        MAX_LEN=45
+        day_dtt = datetime.strptime(date, '%Y-%m-%d')
+        weekday = day_dtt.weekday() + 1
+        time_dtt = datetime.strptime(time, '%H:%M')
+        room_events = db.session.scalars(
+            select(Events)
+            .where(Events.room == room or Events.room == room.strip("!"))
+            .where(Events.building == building)
+            .where(Events.day == datetime.today().weekday() + 1)
+        ).all()
+        events_to_check = []
+        for event in room_events:
+            start_time = datetime.strptime(event.time_start, '%H:%M')
+            for i in range(len(RESET_TIMES_DTT) - 1):
+                if RESET_TIMES_DTT[i] <= start_time < RESET_TIMES_DTT[i + 1]:
+                    start_time = RESET_TIMES_DTT[i]
+                    break
+            finish_time = datetime.strptime(event.time_finish, '%H:%M')
+            dates = re.findall(DATE_PATTERN, event.description)
+            date_range = re.search(DATE_RANGE_PATTERN, event.description)
+            if date_range:
+                date_start, date_finish = date_range.group().split('-')
+                start_dtt = datetime.strptime(date_start, '%d.%m')
+                finish_dtt = datetime.strptime(date_finish, '%d.%m')
+                if not start_dtt <= day_dtt <= finish_dtt:
+                    continue
+            if dates and day_dtt not in dates:
+                continue
+            events_to_check.append(event)
+            if start_time <= time_dtt <= finish_time:
+                status = "busy"
+                long_description = "..." if len(event.description) > MAX_LEN else ""
+                status_description = event.description[:MAX_LEN] + long_description
+                break
+        else:
+            start_times = sorted([datetime.strptime(event.time_start, '%H:%M') for event in events_to_check])
+            closest = None
+            for st in start_times:
+                if st <= time_dtt:
+                    continue
+                closest = st
+                break
+            desc = "до " + closest.strftime('%H:%M') if closest else "до конца дня"
+            status_description = desc
+            status = "free"
+        return status, status_description
 
     # CRON - UPDATE ROOMS STATUS
     def set_room_statuses(self):
-        MAX_LEN = 45
         rooms = db.session.scalars(select(Room)).all()
         now = datetime.strptime(datetime.now().strftime('%H:%M'), '%H:%M')
         today = datetime.today().strftime("%d.%m")
         today_dtt = datetime.strptime(today, "%d.%m")
         for room in rooms:
-            room_events = db.session.scalars(
-                select(Events)
-                .where(Events.room == room.room)
-                .where(Events.building == room.building)
-                .where(Events.day == datetime.today().weekday() + 1)
-            ).all()
-            events_to_check = []
-            for event in room_events:
-                start_time = datetime.strptime(event.time_start, '%H:%M')
-                for i in range(len(RESET_TIMES_DTT) - 1):
-                    if RESET_TIMES_DTT[i] <= start_time < RESET_TIMES_DTT[i + 1]:
-                        start_time = RESET_TIMES_DTT[i]
-                        break
-                finish_time = datetime.strptime(event.time_finish, '%H:%M')
-                dates = re.findall(DATE_PATTERN, event.description)
-                date_range = re.search(DATE_RANGE_PATTERN, event.description)
-                if date_range:
-                    date_start, date_finish = date_range.group().split('-')
-                    start_dtt = datetime.strptime(date_start, '%d.%m')
-                    finish_dtt = datetime.strptime(date_finish, '%d.%m')
-                    if not start_dtt <= today_dtt <= finish_dtt:
-                        continue
-                if dates and today not in dates:
-                    continue
-                events_to_check.append(event)
-                if start_time <= now <= finish_time:
-                    room.status = "busy"
-                    long_description = "..." if len(event.description) > MAX_LEN else ""
-                    room.status_description = event.description[:MAX_LEN] + long_description
-                    break
-            else:
-                start_times = sorted([datetime.strptime(event.time_start, '%H:%M') for event in events_to_check])
-                closest = None
-                for st in start_times:
-                    if st <= now:
-                        continue
-                    closest = st
-                    break
-                desc = "до " + closest.strftime('%H:%M') if closest else "до конца дня"
-                room.status_description = desc
-                if room.room_type.name != "seminar":
-                    room.status = room.room_type.name
-                else:
-                    room.status = "free"
+            status, description = self.room_status(room.building, room.room, today, now.strftime('%H:%M'))
+            if status == "free" and room.room_type.name != "seminar":
+                status = room.room_type.name
+            room.status = status
+            room.status_description = description
         db.session.commit()
 
     def get_room_statuses(self):
@@ -470,5 +543,27 @@ class DatabaseManager:
         db.session.commit()
         print(room_status.status, room_status.status_description)
         return room_status
-        
+    
+    # PICKER - FREE ROOMS
+    def get_free_rooms_picker(self, building: str, room_type: str, date: str, time: str):
+        free_rooms = self.get_free_rooms(time, date) # list of tuples (room, building)
+        ret_rooms: list[Room] = []
+        for rid, bid in free_rooms:
+            if building != "any" and building != bid:
+                continue
+            try:
+                room = db.session.scalars(
+                    select(Room)
+                    .where(Room.building == bid)
+                    .where(Room.room == rid)
+                ).all()[0]
+            except KeyError:
+                print("No results found: {} {}".format(bid, rid))
+                continue
+            if room.room_type.name != room_type:
+                continue
+            ret_rooms.append(room)
+        self.db.session.expunge_all()
+        return ret_rooms
+            
         

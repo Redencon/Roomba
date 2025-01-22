@@ -1,5 +1,5 @@
 from flask import request, redirect, url_for, session, render_template, jsonify, make_response
-from dash import Dash, html, page_container, callback, Input, Output, no_update, State, set_props
+from dash import Dash, html, page_container, callback, Input, Output, no_update, State, set_props, get_asset_url
 from dash import dcc
 import dash_bootstrap_components as dbc
 import os
@@ -15,15 +15,15 @@ import sys
 
 SEARCH_RESULT_LIMIT = 25
 
-def error_handler(err):
-    with open("/var/www/u2906537/data/www/folegle.ru/log.txt", "w") as f:
-        f.write(traceback.format_exception(err))
+# def error_handler(err):
+#     with open("/var/www/u2906537/data/www/folegle.ru/log.txt", "w") as f:
+#         f.write(traceback.format_exception(err))
 
 GOOGLE = "https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
 application = Dash("Folegle", title="Folegle", server=server, external_stylesheets=[
     dbc.themes.BOOTSTRAP, GOOGLE, "static/style.css",
     "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-], use_pages=True, on_error=error_handler)
+], use_pages=True)
 
 with open("keys/DEBUG") as f:
     IS_DEBUG = f.read().strip() == "True"
@@ -111,6 +111,7 @@ dbm.logf = push_log
 
 
 application.layout = html.Div([
+    dcc.Location(id="url", refresh=False),
     dbc.Navbar(dbc.Container([
         dbc.NavbarBrand(
             [html.Img(src=application.get_asset_url("icon.png"), height="30px", style={"margin-right": "10px"}, id="main_header"), "Folegle"],
@@ -118,9 +119,10 @@ application.layout = html.Div([
         ),
         dbc.Nav([
             dbc.NavItem(dbc.NavLink("График", href="/")),
-            dbc.NavItem(dbc.NavLink("Аудитории", href="/rooms")),
-        ], class_name="fw-bold", navbar=True),
-    ]), style={"background-image": "var(--main-gradient)", "color": "white"}, dark=True),
+            dbc.NavItem(dbc.NavLink("Занятость", href="/rooms")),
+            dbc.NavItem(dbc.NavLink("Подбор", href="/picker")),
+        ], class_name="fw-bold me-5 me-md-1", navbar=True),
+    ]), dark=True, id="main-navbar", color="var(--color-primary)"),
     # html.Div(
     #     html.Header("Folegle", id="main_header"),
     #     className="header-fullwidth",
@@ -156,6 +158,7 @@ application.layout = html.Div([
     }),
     dcc.Location(id='redirect', refresh=True),
     page_container,
+    html.Hr(),
     dbc.Offcanvas([
         dcc.Input(id="search-input", type="text", placeholder="Поиск...", debounce=True),
         html.Br(),
@@ -180,7 +183,7 @@ application.layout = html.Div([
             id="footer-text",
             n_clicks=0
         )
-    ), class_name="align-items-center justify-content-between flex-column flex-sm-row"), className="px-5"), className="bg-white py-1 mt-auto", id="footer"),
+    ), class_name="align-items-center justify-content-between flex-column flex-sm-row"), className="px-4"), className="bg-white py-1 mt-auto fixed-bottom", id="footer"),
 ])
 
 @callback(
@@ -191,6 +194,17 @@ def go_home(_):
     if not(dbm.verify_password(request.cookies.get('password')) or IS_DEBUG):
         return url_for('request_password')
     return no_update
+
+@callback(
+    Output("main-navbar", "style"),
+    Input("url", "pathname")
+)
+def update_navbar(pathname):
+    print(pathname)
+    if "admin" in pathname:
+        print("attempting to change navbar")
+        return {"background-color": "var(--color-primary)", "color": "white"}
+    return {"background-image": "var(--main-gradient)", "color": "white"}
 
 @server.route('/login', methods=['GET', 'POST'])
 @track_usage("login_page")

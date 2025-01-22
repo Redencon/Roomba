@@ -3,6 +3,7 @@ from sql import DatabaseManager, ROOM_STATUS, WEEKDAYS
 import flask
 import diskcache as dc
 import traceback
+from dash import html
 
 BUILDINGS = [
     'ГК', 'ЛК', 'Квант', 'КПМ', 'Цифра', 'Арктика', 'БК', 'УПМ', 'КМО'
@@ -56,6 +57,13 @@ server.config['SQLALCHEMY_DATABASE_URI'] = sql_url
 server.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 server.secret_key = "MyNameIsNotDiana"
 dbm = DatabaseManager(server)
+
+
+def building_span(building, addition=""):
+    return html.Span(building+addition, style={
+            'color': BUILDING_PALETTES[building][0],
+            'font-weight': '700',
+        })
 
 
 def track_usage(name):
