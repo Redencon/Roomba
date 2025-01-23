@@ -235,7 +235,7 @@ def event_card(event: "Events|FictionalEvent", for_search=False):
             dbc.CardBody([
                 html.Span(event.description),
             ])
-        ], color="primary", outline=True, id=cardid, class_name="h-100"),
+        ], id=cardid),
 
 @callback(
     Output("search-results-admin", "children"),
@@ -277,9 +277,9 @@ def select_event(n_clicks, ids):
     ev = dbm.get_event_by_id(evid)
     for div_id in ids:
         if div_id["index"] == evid:
-            dash.set_props({"type": "search-card-admin", "index": div_id["index"]}, dict(color="info", outline=False))
+            dash.set_props({"type": "search-card-admin", "index": div_id["index"]}, {"className": "h-100 border-3 border-success"})
         else:
-            dash.set_props({"type": "search-card-admin", "index": div_id["index"]}, dict(color="primary", outline=True))
+            dash.set_props({"type": "search-card-admin", "index": div_id["index"]}, {"className": "h-100 border-1 border-primary"})
     return ev.time_start, ev.time_finish, ev.building, ev.room, dbm.dateless_event(ev), False, False, True, evid
 
 @callback(
