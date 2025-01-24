@@ -1,6 +1,6 @@
 from flask import request, redirect, url_for, session, render_template, jsonify, make_response
 from dash import Dash, html, page_container, callback, Input, Output, no_update, State, set_props, get_asset_url
-from dash import dcc
+from dash import dcc, clientside_callback
 import dash_bootstrap_components as dbc
 import os
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -109,6 +109,17 @@ def push_log(msg):
 
 dbm.logf = push_log
 
+clientside_callback(
+    """
+    function(n_clicks, is_open) {
+        return !is_open;
+    }
+    """,
+    Output("navbar-collapse", "is_open"),
+    Input("navbar-toggler", "n_clicks"),
+    State("navbar-collapse", "is_open"),
+    prevent_initial_call=True
+)
 
 application.layout = html.Div([
     dcc.Location(id="url", refresh=False),
@@ -117,12 +128,16 @@ application.layout = html.Div([
             [html.Img(src=application.get_asset_url("icon.png"), height="30px", style={"margin-right": "10px"}, id="main_header"), "Folegle"],
             href="/", className="d-flex align-items-center", style={"font-weight": "800", "color": "white"}
         ),
-        dbc.Nav([
-            dbc.NavItem(dbc.NavLink("График", href="/")),
-            dbc.NavItem(dbc.NavLink("Занятость", href="/rooms")),
-            dbc.NavItem(dbc.NavLink("Подбор", href="/picker")),
-        ], class_name="fw-bold me-5 me-md-1", navbar=True),
-    ]), dark=True, id="main-navbar", color="var(--color-primary)"),
+        dbc.NavbarToggler(id="navbar-toggler", class_name="w-auto", style={"margin-right": "4rem"}),
+        dbc.Collapse([
+            dbc.Nav([
+                dbc.NavItem(dbc.NavLink("График", href="/", active="exact")),
+                dbc.NavItem(dbc.NavLink("Занятость", href="/rooms", active="exact")),
+                dbc.NavItem(dbc.NavLink("Подбор", href="/picker", active="exact")),
+                # dbc.NavItem(dbc.NavLink(html.I(className="bi bi-heart-fill"), id="distraction-toggle"), class_name="d-none d-lg-block"),
+            ], class_name="fw-bold me-5 me-md-1 align-self-end nav-underline", navbar=True, style={"gap": 0}),
+        ], navbar=True, id="navbar-collapse", class_name="justify-content-end"),
+    ]), dark=True, id="main-navbar", color="var(--color-primary)", expand="md"),
     # html.Div(
     #     html.Header("Folegle", id="main_header"),
     #     className="header-fullwidth",
@@ -157,8 +172,9 @@ application.layout = html.Div([
         "z-index": "100",
     }),
     dcc.Location(id='redirect', refresh=True),
-    page_container,
-    html.Hr(),
+    html.Div(
+        page_container
+    ),
     dbc.Offcanvas([
         dcc.Input(id="search-input", type="text", placeholder="Поиск...", debounce=True),
         html.Br(),
@@ -175,16 +191,46 @@ application.layout = html.Div([
         dbc.ModalHeader("Function log"),
         dbc.ModalBody(html.Code("NONE", id="function-log",  style={"white-space": "pre-wrap"})),
     ], id="error-modal", is_open=False, scrollable=True, style={"display": "none"}),
+    dbc.Offcanvas(
+        html.Div(
+            html.Img(src=get_asset_url("Nastya1.png"), style={"width": "100%"}),
+            className="d-flex justify-content-center align-items-center h-100"
+        ),
+        placement="start", backdrop=False, scrollable=True, id="distraction-left", close_button=False,
+        style={"width": "18%"}
+    ),
+    dbc.Offcanvas(
+        html.Div(
+            html.Img(src=get_asset_url("Diana1.png"), style={"width": "100%"}),
+            className="d-flex justify-content-center align-items-center h-100"
+        ),
+        placement="end", backdrop=False, scrollable=True, id="distraction-right", close_button=False,
+        style={"width": "18%"}
+    ),
     html.Div(id="error_report"),
     html.Footer(dbc.Container(dbc.Row(dbc.Col(
         html.Div(
-            ["Собрано ", html.A("Folegle", href="https://t.me/folegle")," - для ", html.A("МКИ (Студсовета МФТИ)", href="https://t.me/mki_mipt")],
+            [
+                "Собрано ",
+                html.A("Folegle", href="https://t.me/folegle")," - для ",
+                html.A("МКИ (Студсовета МФТИ) ", href="https://t.me/mki_mipt"),
+            ],
             className="small m-0",
             id="footer-text",
             n_clicks=0
         )
     ), class_name="align-items-center justify-content-between flex-column flex-sm-row"), className="px-4"), className="bg-white py-1 mt-auto fixed-bottom", id="footer"),
 ])
+
+@callback(
+    Output("distraction-left", "is_open"),
+    Output("distraction-right", "is_open"),
+    Input("distraction-toggle", "n_clicks"),
+)
+def toggle_distraction(n_clicks):
+    if not n_clicks:
+        return no_update, no_update
+    return n_clicks % 2 == 1, n_clicks % 2 == 1
 
 @callback(
     Output("redirect", "pathname"),

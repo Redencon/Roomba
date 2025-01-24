@@ -399,7 +399,7 @@ input {
 
 .gradient {
     --move-speed: 30s;
-    width: 100vw;
+    width: 100%;
     background: linear-gradient(90deg, var(--color-secondary), var(--color-tertiary), var(--color-primary), var(--color-secondary), var(--color-tertiary), var(--color-primary), var(--color-secondary));
     background-size: 200%;
     animation: shiftGradient var(--move-speed) linear infinite;

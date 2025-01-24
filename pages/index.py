@@ -1,6 +1,6 @@
 import dash_bootstrap_components as dbc
 import dash
-from dash import html, dcc, Input, Output, State, callback, ALL
+from dash import html, dcc, Input, Output, State, callback, ALL, set_props
 import traceback
 import re
 import datetime as dtt
@@ -284,6 +284,7 @@ def toggle_free_rooms(_a, _b, is_open):
 def show_free_rooms(n_clicks, building, time, date):
     if not time:
         time = dtt.datetime.now().strftime('%H:%M')
+        set_props("fr-time", dict(value=time))
     else:
         dbm.counter_plus_one("free_rooms_time_set")
     free_rooms = dbm.get_free_rooms(time, date)

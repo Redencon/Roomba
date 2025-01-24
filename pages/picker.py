@@ -110,6 +110,18 @@ def update_floors(building):
     return [any_floor]+[{"label": str(f), "value": f} for f in BUILDING_FLOORS[building]], "any"
 
 @callback(
+    Output("picker-capacity", "valid"),
+    Output("picker-submit", "disabled"),
+    Input("picker-capacity", "value"),
+)
+def validate_capacity(capacity):
+    if not isinstance(capacity, int):
+        return False, True
+    if capacity < 2 or capacity > 120:
+        return False, True
+    return True, False
+
+@callback(
     Output("picker-results", "children"),
     Input("picker-submit", "n_clicks"),
     State("picker-building", "value"),
