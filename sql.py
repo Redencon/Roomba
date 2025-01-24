@@ -211,7 +211,7 @@ class DatabaseManager:
         return list(res)
 
     def get_all_rooms(self, building: str):
-        res = self.db.session.scalars(select(Room.room).where(Room.building==building)).all()
+        res = self.db.session.scalars(select(Room.room).where(Room.building==building).distinct()).all()
         return list(res)
 
     def get_event_by_id(self, event_id: int):
@@ -567,5 +567,15 @@ class DatabaseManager:
             ret_rooms.append(room)
         self.db.session.expunge_all()
         return ret_rooms
+
+    def get_room_equipment(self, building: str):
+        rooms = db.session.scalars(
+            select(Room)
+            .where(Room.building == building)
+        ).all()
+        return [
+            (room.room, room.equipment.split(","))
+            for room in rooms
+        ]
             
         

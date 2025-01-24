@@ -1,6 +1,6 @@
 from dash import html, dcc, Input, Output, State, MATCH, ALL, get_asset_url
 from dash import callback_context, clientside_callback, register_page, callback
-from utils import BUILDINGS, BUILDING_PALETTES, building_span, dbm
+from utils import BUILDINGS, BUILDING_PALETTES, building_span, dbm, EQUIPMENT_OPTIONS
 import dash_bootstrap_components as dbc
 from datetime import datetime
 
@@ -88,7 +88,7 @@ layout = dbc.Container([
         ]),
         dbc.Col([
             dbc.FormText("Оборудование"),
-            dcc.Dropdown(options=["меловая доска", "проектор", "электронная доска"], multi=True, id="picker-equipment"),
+            dcc.Dropdown(options=EQUIPMENT_OPTIONS, multi=True, id="picker-equipment"),
         ], width=7, md=4),
         dbc.Col([
             dbc.Button("Подобрать", id="picker-submit", color="primary"),

@@ -379,7 +379,7 @@ layout = html.Div([
                     for building in BUILDINGS
                 ], id="stores"),
                 dbc.Col(html.Div(id='gantt-charts')),
-            ], type="cube", fullscreen=True, style={"z-index": 9999})
+            ], type="cube", style={"z-index": 9999, "max-height": "450px"})
         ])
     ]),
     dbc.Modal([

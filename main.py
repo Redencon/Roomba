@@ -134,7 +134,7 @@ application.layout = html.Div([
                 dbc.NavItem(dbc.NavLink("График", href="/", active="exact")),
                 dbc.NavItem(dbc.NavLink("Занятость", href="/rooms", active="exact")),
                 dbc.NavItem(dbc.NavLink("Подбор", href="/picker", active="exact")),
-                # dbc.NavItem(dbc.NavLink(html.I(className="bi bi-heart-fill"), id="distraction-toggle"), class_name="d-none d-lg-block"),
+                dbc.NavItem(dbc.NavLink(html.I(className="bi bi-heart-fill"), id="distraction-toggle"), class_name="d-none d-lg-block"),
             ], class_name="fw-bold me-5 me-md-1 align-self-end nav-underline", navbar=True, style={"gap": 0}),
         ], navbar=True, id="navbar-collapse", class_name="justify-content-end"),
     ]), dark=True, id="main-navbar", color="var(--color-primary)", expand="md"),
@@ -193,7 +193,7 @@ application.layout = html.Div([
     ], id="error-modal", is_open=False, scrollable=True, style={"display": "none"}),
     dbc.Offcanvas(
         html.Div(
-            html.Img(src=get_asset_url("Nastya1.png"), style={"width": "100%"}),
+            html.Img(src=get_asset_url("Nastya1.png"), style={"height": "100%"}),
             className="d-flex justify-content-center align-items-center h-100"
         ),
         placement="start", backdrop=False, scrollable=True, id="distraction-left", close_button=False,
@@ -201,7 +201,7 @@ application.layout = html.Div([
     ),
     dbc.Offcanvas(
         html.Div(
-            html.Img(src=get_asset_url("Diana1.png"), style={"width": "100%"}),
+            html.Img(src=get_asset_url("Diana1.png"), style={"height": "100%"}),
             className="d-flex justify-content-center align-items-center h-100"
         ),
         placement="end", backdrop=False, scrollable=True, id="distraction-right", close_button=False,

@@ -417,3 +417,7 @@ input {
 .gradient-fast{
     --move-speed: 0.4s;
 }
+
+.Select-menu-outer {
+    display : block !important;
+}

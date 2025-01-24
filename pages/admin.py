@@ -1,7 +1,8 @@
 import dash
 from dash import html, dcc, Input, Output, callback, State, clientside_callback, ALL, callback_context
+from dash import dash_table
 from flask import session
-from utils import dbm, BUILDINGS, BUILDING_PALETTES, building_span
+from utils import dbm, BUILDINGS, BUILDING_PALETTES, building_span, EQUIPMENT_OPTIONS
 import dash_bootstrap_components as dbc
 from datetime import datetime
 from sql import Events
@@ -76,7 +77,7 @@ layout = html.Div([
                 dbc.Col(dbc.Textarea(id="description", placeholder="Описание"), width=12),
                 dbc.Col(dbc.Button("Добавить", id="add-button", color="primary", disabled=True), width=12),
             ], class_name="gy-2 mb-4 mt-1 gx-1"),
-        ], label="Добавить", tab_id="add"),
+        ], label="Добавить", tab_id="add", label_style={"color": "var(--color-primary)"}, active_label_style={"color": "white"}),
         dbc.Tab([
             # - Remove event -
             # First, the event should be selected either by date or by room
@@ -86,6 +87,7 @@ layout = html.Div([
             dbc.Row([
                 dbc.Col([
                     dbc.FormText("Дата проведения"),
+                    html.Br(),
                     dcc.DatePickerSingle(date=datetime.today().date(), id="date-picker-remove", display_format='YYYY-MM-DD'),
                 ], width=3),
                 dbc.Col([
@@ -140,8 +142,36 @@ layout = html.Div([
                 ], class_name="mt-3"),
             ], is_open=False, id="remove-collapse"),
             dcc.Store(id="selected-event"),
-        ], label="Убрать/изменить", tab_id="remove"),
-    ], class_name="nav-pills"),
+        ], label="Убрать/изменить", tab_id="remove", label_style={"color": "var(--color-primary)"}, active_label_style={"color": "white"}),
+        dbc.Tab([
+            dbc.Row([
+                dbc.Col([
+                    dbc.FormText("Корпус"),
+                    dcc.Dropdown(options=[
+                        {"label": building_span(building), "value": building}
+                        for building in BUILDINGS
+                    ], id="building-equipment", value=BUILDINGS[0], clearable=False),
+                ], width=6, md=3),
+                dbc.Col([
+                    dash_table.DataTable(
+                        id="room-equipment",
+                        columns=[{'id': 'room', 'name': 'Аудитория', 'editablle': False}]+[
+                            {'id': eq, 'name': eq[:8], 'presentation': 'dropdown'}
+                            for eq in EQUIPMENT_OPTIONS
+                        ],
+                        editable=True,
+                        dropdown={
+                            eq: {"options": [{"label": "✅", "value": "Y"}, {"label": "❌", "value": "N"}], "clearable": False}
+                            for eq in EQUIPMENT_OPTIONS
+                        },
+                        tooltip_header={eq: eq for eq in EQUIPMENT_OPTIONS},
+                        fixed_columns={"data": 1},
+                        fixed_rows={"headers": True},
+                    ),
+                ], width=12, style={"overflowX": "auto"}),
+            ], class_name="g-2")
+        ], label="Оборудование", tab_id="equipment", label_style={"color": "var(--color-primary)"}, active_label_style={"color": "white"})
+    ], class_name="nav-pills", ),
     dbc.Modal([
         dbc.ModalHeader("Подтвердите действие"),
         dbc.ModalBody(id="confirm-body"),
@@ -151,7 +181,7 @@ layout = html.Div([
             dbc.Col(dbc.Button("Сохранить", id="confirm-save", color="primary"), width=6, style={"display": "none"}, id="save-col"),
         ]))
     ], id="confirm-dialog", is_open=False),
-], className="container col-11 col-sm-9 col-lg-6 col-xxl-4")
+], className="container")
 
 clientside_callback(
     """
@@ -339,3 +369,18 @@ clientside_callback(
     Input("cancel-remove", "n_clicks"),
     prevent_initial_call=True
 )
+
+@callback(
+    Output("room-equipment", "data"),
+    Input("building-equipment", "value"),
+)
+def show_current_equipment(building):
+    equipment = dbm.get_room_equipment(building)
+    equipment.sort(key=lambda x: x[0])
+    rows = []
+    for room, eq in equipment:
+        row = {"room": room}
+        for eq_name in EQUIPMENT_OPTIONS:
+            row[eq_name] = "Y" if eq_name in eq else "N"
+        rows.append(row)
+    return rows

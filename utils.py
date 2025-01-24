@@ -51,6 +51,10 @@ BUILDING_NAVIGATION = [
     {"label": "КМО", "value": "КМО", "style": {"color": "#F47742", "font-weight": "800"}},
 ]
 
+EQUIPMENT_OPTIONS = [
+    "Маркерная доска", "Меловая доска", "Электронная доска", "Проектор", "Компьютер", "Кондиционер",
+]
+
 def log(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
