@@ -159,22 +159,18 @@ def show_picker_results(n_clicks, building, floor, room_type, date, time, equipm
     for room in free_rooms:
         status, desc = dbm.room_status(room.building, room.room, date, time)
         if status != "free":
-            free_rooms.remove(room)
             continue
         room_desc[(room.building, room.room)] = desc
-    room_desc = {
-        (room.building, room.room): dbm.room_status(room.building, room.room, date, time)[1]
-        for room in free_rooms
-    }
+    
     return [
         dbc.Col(dbc.Card([
-            dbc.CardHeader(building_span(room.building, room.room.strip("!"))),
+            dbc.CardHeader(building_span(room.building, ("" if room.room.strip("!").isdigit() else " ")+room.room.strip("!"))),
             dbc.CardBody([
                 html.P(f"Оборудование: {', '.join(room.equipment) or 'нет'}", className="mb-1"),
                 html.P(["Вместимость: ", html.Strong(str(room.capacity)), " человек"], className="mb-1"),
                 html.P(["Свободно ", room_desc[(room.building, room.room)]], className="mb-1"),
             ]),
         ]))
-        for room in free_rooms
+        for room in free_rooms if (room.building, room.room) in room_desc
     ]
         

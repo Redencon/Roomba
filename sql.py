@@ -391,13 +391,15 @@ class DatabaseManager:
     def room_status(self, building: str, room: str, date: str, time: str):
         MAX_LEN=45
         day_dtt = datetime.strptime(date, '%Y-%m-%d')
+        bad_day = day_dtt.strftime('%d.%m')
+        bad_day_dtt = datetime.strptime(bad_day, '%d.%m')
         weekday = day_dtt.weekday() + 1
         time_dtt = datetime.strptime(time, '%H:%M')
         room_events = db.session.scalars(
             select(Events)
             .where(Events.room == room or Events.room == room.strip("!"))
             .where(Events.building == building)
-            .where(Events.day == datetime.today().weekday() + 1)
+            .where(Events.day == weekday)
         ).all()
         events_to_check = []
         for event in room_events:
@@ -413,9 +415,9 @@ class DatabaseManager:
                 date_start, date_finish = date_range.group().split('-')
                 start_dtt = datetime.strptime(date_start, '%d.%m')
                 finish_dtt = datetime.strptime(date_finish, '%d.%m')
-                if not start_dtt <= day_dtt <= finish_dtt:
+                if not start_dtt <= bad_day_dtt <= finish_dtt:
                     continue
-            if dates and day_dtt not in dates:
+            if dates and bad_day not in dates:
                 continue
             events_to_check.append(event)
             if start_time <= time_dtt <= finish_time:
@@ -440,8 +442,8 @@ class DatabaseManager:
     def set_room_statuses(self):
         rooms = db.session.scalars(select(Room)).all()
         now = datetime.strptime(datetime.now().strftime('%H:%M'), '%H:%M')
-        today = datetime.today().strftime("%d.%m")
-        today_dtt = datetime.strptime(today, "%d.%m")
+        today = datetime.today().strftime("%Y-%m-%d")
+        today_dtt = datetime.today()
         for room in rooms:
             status, description = self.room_status(room.building, room.room, today, now.strftime('%H:%M'))
             if status == "free" and room.room_type.name != "seminar":
