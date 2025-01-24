@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", function() {
             clearInterval(interval);
             console.log('Go top button found:', go_top_button);
             go_top_button.addEventListener("click", function() {
-                document.getElementById("main_header").scrollIntoView({ behavior: 'smooth' });});
+                document.getElementById("main-navbar").scrollIntoView({ behavior: 'smooth' });});
         }
     },100);
 });

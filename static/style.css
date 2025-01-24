@@ -381,4 +381,39 @@ input {
     --bs-nav-pills-link-active-bg: var(--color-primary);
 }
 
+.side-button {
+    font-size: medium;
 
+    @media screen and (min-width: 768px) {
+        font-size: x-large;
+    }
+}
+
+.nav-link {
+    color: rgba(255, 255, 255, 0.8);
+
+    &:hover {
+        color: rgba(255, 255, 255, 1);
+    }
+}
+
+.gradient {
+    --move-speed: 30s;
+    width: 100vw;
+    background: linear-gradient(90deg, var(--color-secondary), var(--color-tertiary), var(--color-primary), var(--color-secondary), var(--color-tertiary), var(--color-primary), var(--color-secondary));
+    background-size: 200%;
+    animation: shiftGradient var(--move-speed) linear infinite;
+  }
+
+  @keyframes shiftGradient {
+    from {
+      background-position: 0% 50%;
+    }
+    to {
+      background-position: 100% 50%;
+    }
+  }
+
+.gradient-fast{
+    --move-speed: 0.4s;
+}

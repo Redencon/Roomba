@@ -131,22 +131,22 @@ application.layout = html.Div([
     # dbc.Breadcrumb(),
     html.Div([
         html.Button(
-            html.I(className="bi bi-search"),
+            html.I(className="bi bi-search side-button"),
             id="search-button",
             className="menu-toggle",
         ),
         html.Button(
-            html.I(className="bi bi-stars"),
+            html.I(className="bi bi-stars side-button"),
             id="new-features-button",
             className="menu-toggle",
         ),
         html.Button(
-            html.I(className="bi bi-chevron-up"),
+            html.I(className="bi bi-chevron-up side-button"),
             id="go-top-button",
             className="menu-toggle",
         ),
         html.Button(
-            html.I(className="bi bi-wrench"),
+            html.I(className="bi bi-wrench side-button"),
             id="log-button",
             className="menu-toggle",
         ),
@@ -196,15 +196,15 @@ def go_home(_):
     return no_update
 
 @callback(
-    Output("main-navbar", "style"),
+    Output("main-navbar", "className"),
     Input("url", "pathname")
 )
 def update_navbar(pathname):
     print(pathname)
     if "admin" in pathname:
         print("attempting to change navbar")
-        return {"background-color": "var(--color-primary)", "color": "white"}
-    return {"background-image": "var(--main-gradient)", "color": "white"}
+        return ""
+    return "gradient"
 
 @server.route('/login', methods=['GET', 'POST'])
 @track_usage("login_page")
