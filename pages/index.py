@@ -62,7 +62,7 @@ def filter_events(events, date):
         {'description': event.description, 'building': event.building, 'room': event.room, 'time_start': event.time_start, 'time_finish': event.time_finish}
         for event in events 
         if is_not_weekly(event.description, date_proper)
-    ])
+    ], columns=['description', 'building', 'room', 'time_start', 'time_finish'])
     df[['stime', 'ftime']] = df[['time_start', 'time_finish']]
     df['time_start'] = pd.to_datetime(df['time_start'], format='%H:%M')
     df['time_finish'] = pd.to_datetime(df['time_finish'], format='%H:%M')
