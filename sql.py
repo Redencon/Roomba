@@ -343,7 +343,7 @@ class DatabaseManager:
         return events
     
     # ADMIN - CHECK ROOM
-    def check_room(self, building: str, room: str, date: str, time_start: str, time_finish: str):
+    def check_room(self, building: str, room: str, date: str, time_start: str, time_finish: str, date_end:"str|None" = None, forever=False):
         day_dtt = datetime.strptime(date, '%Y-%m-%d')
         weekday = day_dtt.weekday() + 1
         all_events = db.session.scalars(
@@ -352,6 +352,16 @@ class DatabaseManager:
             .where(Events.room == room)
             .where(Events.building == building)
         ).all()
+        all_dates = set()
+        if date:
+            all_dates.add(date)
+            if date_end:
+                begin_dtt = datetime.strptime(date, '%Y-%m-%d')
+                end_dtt = datetime.strptime(date_end, '%Y-%m-%d')
+                cur_dtt = begin_dtt
+                while cur_dtt < end_dtt:
+                    cur_dtt += timedelta(days=7)
+                    all_dates.add(cur_dtt.strftime('%Y-%m-%d'))
         time_start_dtt = datetime.strptime(time_start, '%H:%M')
         time_finish_dtt = datetime.strptime(time_finish, '%H:%M')
         flag = False
@@ -360,14 +370,16 @@ class DatabaseManager:
             finish_time = datetime.strptime(event.time_finish, '%H:%M')
             dates = re.findall(DATE_PATTERN, event.description)
             date_range = re.search(DATE_RANGE_PATTERN, event.description)
-            if date_range:
-                date_start, date_finish = date_range.group().split('-')
-                start_dtt = datetime.strptime(date_start, '%d.%m')
-                finish_dtt = datetime.strptime(date_finish, '%d.%m')
-                if not start_dtt <= day_dtt <= finish_dtt:
+            if all_dates:  # skips on specific dates uncollisions
+                # either date_range or dates expected. If both are present, the logic is flawed
+                if date_range:  # skips on date ranges uncollisions
+                    date_start, date_finish = date_range.group().split('-')
+                    start_dtt = datetime.strptime(date_start, '%d.%m')
+                    finish_dtt = datetime.strptime(date_finish, '%d.%m')
+                    if begin_dtt > finish_dtt or end_dtt < start_dtt:
+                        continue
+                if dates and not set(dates) & all_dates:
                     continue
-            if dates and date not in dates:
-                continue
             if flag:
                 print(start_time, finish_time, time_start_dtt, time_finish_dtt)
                 flag = False

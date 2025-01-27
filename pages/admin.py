@@ -152,6 +152,7 @@ layout = html.Div([
                         for building in BUILDINGS
                     ], id="building-equipment", value=BUILDINGS[0], clearable=False),
                 ], width=6, md=3),
+                dbc.Col([dbc.Button("Сохранить", id="save-equipment", color="primary")], width=6, md=3, class_name="d-flex align-items-end"),
                 dbc.Col([
                     dash_table.DataTable(
                         id="room-equipment",
@@ -181,6 +182,14 @@ layout = html.Div([
             dbc.Col(dbc.Button("Сохранить", id="confirm-save", color="primary"), width=6, style={"display": "none"}, id="save-col"),
         ]))
     ], id="confirm-dialog", is_open=False),
+    dbc.Modal([
+        dbc.ModalHeader("Подтвердите добавление"),
+        dbc.ModalBody(id="confirm-add-body"),
+        dbc.ModalFooter(dbc.Row([
+            dbc.Col(dbc.Button("Отмена", id="cancel-add", color="secondary"), width=6),
+            dbc.Col(dbc.Button("Добавить", id="confirm-add", color="primary"), width=6),
+        ]))
+    ], id="confirm-add-dialog", is_open=False),
 ], className="container")
 
 clientside_callback(
@@ -213,14 +222,18 @@ clientside_callback(
     Input("date-picker", "date"),
     Input("start-time", "value"),
     Input("finish-time", "value"),
+    Input("date-picker-end", "date"),
+    Input("multiple-dates", "value"),
+    Input("date-forever", "value"),
     prevent_initial_call=True
 )
-def show_check_result(n_clicks, building, room, date, start_time, finish_time):
+def show_check_result(n_clicks, building, room, date, start_time, finish_time, date_end, multiple_dates, date_forever):
     if dash.callback_context.triggered_id == "check":
         if not start_time or not finish_time or not room:
             return "", False, True
-        print(start_time, finish_time, date, room)
-        evs = dbm.check_room(building, room, date, start_time, finish_time)
+        # date = date if not date_forever else None
+        date_end = date_end if multiple_dates and not date_forever else None
+        evs = dbm.check_room(building, room, date, start_time, finish_time, date_end, date_forever)
         if evs:
             return html.Span("На выбранное время аудитория занята: "+evs.description, className="text-danger"), True, True
         else:
@@ -357,6 +370,50 @@ def open_save_dialog(n_save, n_remove, evid, str, ftr, bld, room, dsc):
                 dbc.Col(html.Span("Стало"), width=6, class_name="text-center"),
             ])
         ], {"display": "none"}, {"display": "block"}, True
+
+@callback(
+    Output("confirm-add-body", "children"),
+    Output("confirm-add-dialog", "is_open"),
+    Input("add-button", "n_clicks"),
+    State("date-picker", "date"),
+    State("building", "value"),
+    State("room", "value"),
+    State("start-time", "value"),
+    State("finish-time", "value"),
+    State("description", "value"),
+    State("date-picker-end", "date"),
+    State("multiple-dates", "value"),
+    State("date-forever", "value"),
+    prevent_initial_call=True
+)
+def confirm_add(_, date, building, room, start_time, finish_time, description, date_end, multiple_dates, date_forever):
+    date_str = ""
+    if not date_forever:
+        date = datetime.strptime(date, "%Y-%m-%d").strftime("%d.%m")
+        date_str = date
+        if multiple_dates:
+            date_end = datetime.strptime(date_end, "%Y-%m-%d").strftime("%d.%m")
+            date_str += " - "+date_end
+    fictive = FictionalEvent(
+        id=0, time_start=start_time, time_finish=finish_time,
+        building=building, room=room, description=" ".join([description, date_str])
+    )
+    return [
+        html.Span("Вы уверены, что хотите добавить это мероприятие?", className="text-primary"),
+        dbc.Row([
+            dbc.Col(event_card(fictive)),
+        ],class_name="mt-2"),
+        dbc.Row(dbc.Col(building_span(fictive.building, fictive.room)), class_name="text-center mb-2"),
+    ], True
+
+clientside_callback(
+    """function (n_clicks) {
+        return false;
+    }""",
+    Output("confirm-add-dialog", "is_open", allow_duplicate=True),
+    Input("cancel-add", "n_clicks"),
+    prevent_initial_call=True
+)
 
 
 clientside_callback(
