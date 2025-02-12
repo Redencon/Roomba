@@ -134,6 +134,9 @@ clientside_callback(
                    '</div>' +
                    '</div>';
         }
+        if (desc === "-") {
+            return ['<p class="placeholder-wave"><span class="placeholder col-7"></span></p>', "bi bi-question-circle", "Нет данных", "status-lecture"]
+        }
         const iconClass = {
             "free": "bi bi-unlock",
             "busy": "bi bi-lock",

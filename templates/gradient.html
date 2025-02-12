@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gradient Shift</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #222;
+    }
+
+    .gradient {
+      width: 100vw;
+      background: linear-gradient(90deg, #ED6A66, #FAB62F, #6678B9, #ED6A66, #FAB62F, #6678B9, #ED6A66);
+      background-size: 200%;
+      animation: shiftGradient 6s linear infinite;
+    }
+
+    @keyframes shiftGradient {
+      from {
+        background-position: 0% 50%;
+      }
+      to {
+        background-position: 100% 50%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="gradient", style="height: 100px;"></div>
+</body>
+</html>

@@ -1,6 +1,6 @@
 import dash_bootstrap_components as dbc
 import dash
-from dash import html, dcc, Input, Output, State, callback
+from dash import html, dcc, Input, Output, State, callback, ALL, set_props
 import traceback
 import re
 import datetime as dtt
@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import plotly.express as px
 
-from utils import track_usage, dbm, cache, BUILDING_PALETTES, BUILDINGS
+from utils import track_usage, dbm, cache, BUILDING_PALETTES, BUILDINGS, BUILDING_NAVIGATION, BUILDING_SECTIONS
 
 
 TIME_SLOTS = [
@@ -62,7 +62,7 @@ def filter_events(events, date):
         {'description': event.description, 'building': event.building, 'room': event.room, 'time_start': event.time_start, 'time_finish': event.time_finish}
         for event in events 
         if is_not_weekly(event.description, date_proper)
-    ])
+    ], columns=['description', 'building', 'room', 'time_start', 'time_finish'])
     df[['stime', 'ftime']] = df[['time_start', 'time_finish']]
     df['time_start'] = pd.to_datetime(df['time_start'], format='%H:%M')
     df['time_finish'] = pd.to_datetime(df['time_finish'], format='%H:%M')
@@ -97,7 +97,7 @@ def get_event_charts(selected_date, building, theme="navy"):
 def generate_gantt_charts(df, building, theme="navy"):
     df = df[df['building'] == building]
     if df.empty:
-        return [go.Figure(NULL_PLOT)]
+        return None
     rooms = sorted(dbm.get_rooms_gantt(building))
     room_groups = []
     i = 0
@@ -180,21 +180,50 @@ def generate_gantt_charts(df, building, theme="navy"):
             break
     return figs
 
-
-for building in BUILDINGS:
-    @callback(
-        Output(f'gantt-chart-{building}', 'children'),
-        Input('date-picker', 'date'),
-        Input('theme-switch', 'value')
-    )
-    def update_gantt_charts(selected_date, theme, building=building):
-        charts = get_event_charts(selected_date, building, theme)
-        if selected_date == dtt.datetime.now().strftime('%Y-%m-%d'):
-            now = dtt.datetime.strptime(dtt.datetime.now().strftime('%H:%M'), '%H:%M')
-            for chart in charts:
-                chart: go.Figure
-                chart.add_vline(x=now, line=dict(color="red", width=2))
-        return [dcc.Graph(figure=fig, style={"min-width": "900px", "width": "100%"}) for fig in charts]
+@callback(
+    Output("gantt-charts", "children"),
+    Input("building-nav-store", "data"),
+    Input('date-picker', 'date'),
+)
+def show_gantt_charts(selection, selected_date):
+    if selection in BUILDING_SECTIONS:
+        buildings = BUILDING_SECTIONS[selection]
+    else:
+        buildings = [selection]
+    ret = []
+    for bld in buildings:
+        figures = get_event_charts(selected_date, bld)
+        if figures:
+            if selected_date == dtt.datetime.now().strftime('%Y-%m-%d'):
+                now = dtt.datetime.strptime(dtt.datetime.now().strftime('%H:%M'), '%H:%M')
+                for chart in figures:
+                    chart: go.Figure
+                    chart.add_vline(x=now, line=dict(color="red", width=2))
+            charts = [dcc.Graph(figure=fig, style={"min-width": "900px", "width": "100%"}) for fig in figures]
+        else:
+            charts = html.H1("На этот день нет мероприятий", className="text-center text-muted m-4")
+        ret.append(dbc.Card([
+            dbc.CardHeader(
+                html.Button(
+                    f"{bld}",
+                    id=f"group-{bld}-toggle",
+                    className="btn",
+                    **{"data-bs-toggle": "collapse", "data-bs-target": f"#collapse-{bld}"},
+                    style={
+                        "color": "white", "font-weight": "800",
+                        "font-size": "20px"
+                    }
+                ), style={"background-color": BUILDING_PALETTES[bld][0]},
+                id=f"card-header-{bld}", className="sticky-header"
+            ),
+            dbc.Collapse(
+                html.Div(charts, id=f"gantt-chart-{bld}"),
+                id=f"collapse-{bld}",
+                is_open=True,
+                style={"overflow-x": "auto"}
+            ),
+        ], className="mb-4 pb-1", id=f"card-{bld}"))
+    return ret
 
 
 # @callback(
@@ -208,15 +237,15 @@ for building in BUILDINGS:
 #     ]
 
 
-@callback(
-    [Output("card-header-"+building, "style") for building in BUILDINGS],
-    Input("theme-switch", "value")
-)
-def change_theme(theme):
-    if theme == "navy":
-        return [{"background-color": BUILDING_PALETTES[building][0]} for building in BUILDINGS]
-    dbm.counter_plus_one("use_roomba_theme")
-    return [{"background-color": BUILDING_PALETTES["Roomba"][i % 3]} for i, _ in enumerate(BUILDINGS)]
+# @callback(
+#     [Output("card-header-"+building, "style") for building in BUILDINGS],
+#     Input("theme-switch", "value")
+# )
+# def change_theme(theme):
+#     if theme == "navy":
+#         return [{"background-color": BUILDING_PALETTES[building][0]} for building in BUILDINGS]
+#     dbm.counter_plus_one("use_roomba_theme")
+#     return [{"background-color": BUILDING_PALETTES["Roomba"][i % 3]} for i, _ in enumerate(BUILDINGS)]
 
 # @app.callback(
 #     [Output(f"collapse-{building}", "is_open") for building in BUILDINGS],
@@ -255,6 +284,7 @@ def toggle_free_rooms(_a, _b, is_open):
 def show_free_rooms(n_clicks, building, time, date):
     if not time:
         time = dtt.datetime.now().strftime('%H:%M')
+        set_props("fr-time", dict(value=time))
     else:
         dbm.counter_plus_one("free_rooms_time_set")
     free_rooms = dbm.get_free_rooms(time, date)
@@ -286,6 +316,15 @@ def show_free_rooms(n_clicks, building, time, date):
 )
 def update_fr_header(selected_date):
     return f"Свободные аудитории {selected_date}", None
+
+@callback(
+    Output("building-nav-store", "data"),
+    Input({"type": "building-nav", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True
+)
+def set_building_nav(_):
+    index = dash.callback_context.triggered_id["index"]
+    return index
 
 
 layout = html.Div([
@@ -324,13 +363,13 @@ layout = html.Div([
                     )
                 ], className="radio-group", style={"margin-left": "auto", "width": "auto"}),
                 dbc.DropdownMenu([
-                    dbc.DropdownMenuItem(building, href=f"#card-{building}", style={
-                        "color": palette[0],
-                        "font-weight": "800",
-                    }, external_link=True)
-                    for building, palette in BUILDING_PALETTES.items()
-                    if building != "Roomba"
+                    dbc.DropdownMenuItem(
+                        btn["label"], id={"type": "building-nav", "index": btn["value"]}, style=btn["style"],
+                        class_name="mx-0 my-1"
+                    )
+                    for btn in BUILDING_NAVIGATION
                 ], style={"margin-right": "auto"}, label="Перейти к", className="my-2"),
+                dcc.Store(id="building-nav-store", data="ГК"),
             ], width="auto"),
         ], className="d-flex justify-content-between"),
         dbc.Row([
@@ -339,31 +378,8 @@ layout = html.Div([
                     dcc.Store(id=f"store-{building}", data={"is_open": True})
                     for building in BUILDINGS
                 ], id="stores"),
-                dbc.Col(html.Div([
-                    dbc.Card([
-                        dbc.CardHeader(
-                            html.Button(
-                                f"{building}",
-                                id=f"group-{building}-toggle",
-                                className="btn",
-                                **{"data-bs-toggle": "collapse", "data-bs-target": f"#collapse-{building}"},
-                                style={
-                                    "color": "white", "font-weight": "800",
-                                    "font-size": "20px"
-                                }
-                            ), style={"background-color": BUILDING_PALETTES[building][0]},
-                            id=f"card-header-{building}", className="sticky-header"
-                        ),
-                        dbc.Collapse(
-                            html.Div(id=f"gantt-chart-{building}"),
-                            id=f"collapse-{building}",
-                            is_open=True,
-                            style={"overflow-x": "auto"}
-                        ),
-                    ], className="mb-4 pb-1", id=f"card-{building}")
-                    for building in BUILDINGS
-                ], id='gantt-charts')),
-            ], type="cube", fullscreen=True, style={"z-index": 9999})
+                dbc.Col(html.Div(id='gantt-charts')),
+            ], type="cube", style={"z-index": 9999, "max-height": "450px"})
         ])
     ]),
     dbc.Modal([

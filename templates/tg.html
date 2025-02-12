@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Manager</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #f3f3f3;
+            height: 100vh;
+        }
+
+        .room {
+            width: 90%;
+            max-width: 400px;
+            background-color: #ffffff;
+            border: 1px solid #cccccc;
+            border-radius: 8px;
+            margin: 10px 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .room-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .room button {
+            padding: 5px 10px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .free {
+            background-color: #4caf50;
+            color: #ffffff;
+        }
+
+        .occupied {
+            background-color: #f44336;
+            color: #ffffff;
+        }
+
+        .action-buttons {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .action-buttons button {
+            flex: 1;
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Room Manager</h1>
+    <div id="room-list"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Mock room data; replace this with a real API call
+        const rooms = [
+            { id: 1, number: "101", isOccupied: false, occupants: 0 },
+            { id: 2, number: "102", isOccupied: true, occupants: 3 },
+            { id: 3, number: "103", isOccupied: false, occupants: 0 },
+        ];
+
+        const roomList = document.getElementById("room-list");
+
+        function renderRooms() {
+            roomList.innerHTML = ""; // Clear existing room elements
+
+            rooms.forEach(room => {
+                const roomDiv = document.createElement("div");
+                roomDiv.className = "room";
+
+                const roomHeader = document.createElement("div");
+                roomHeader.className = "room-header";
+
+                const roomInfo = document.createElement("span");
+                roomInfo.textContent = `Room ${room.number} - Occupants: ${room.occupants}`;
+
+                const roomButton = document.createElement("button");
+                roomButton.textContent = room.isOccupied ? "Occupied" : "Free";
+                roomButton.className = room.isOccupied ? "occupied" : "free";
+                roomButton.addEventListener("click", () => toggleRoomStatus(room));
+
+                roomHeader.appendChild(roomInfo);
+                roomHeader.appendChild(roomButton);
+                roomDiv.appendChild(roomHeader);
+
+                if (room.isOccupied) {
+                    const actionButtons = document.createElement("div");
+                    actionButtons.className = "action-buttons";
+
+                    const addButton = document.createElement("button");
+                    addButton.textContent = "Add Occupant";
+                    addButton.addEventListener("click", () => addOccupant(room));
+
+                    const clearButton = document.createElement("button");
+                    clearButton.textContent = "Clear Room";
+                    clearButton.addEventListener("click", () => clearRoom(room));
+
+                    actionButtons.appendChild(addButton);
+                    actionButtons.appendChild(clearButton);
+                    roomDiv.appendChild(actionButtons);
+                }
+
+                roomList.appendChild(roomDiv);
+            });
+        }
+
+        function toggleRoomStatus(room) {
+            room.isOccupied = !room.isOccupied;
+            if (!room.isOccupied) room.occupants = 0; // Clear occupants if room is freed
+
+            renderRooms();
+            tg.sendData(JSON.stringify({ roomId: room.id, isOccupied: room.isOccupied }));
+        }
+
+        function addOccupant(room) {
+            room.occupants += 1;
+            renderRooms();
+            tg.sendData(JSON.stringify({ roomId: room.id, occupants: room.occupants }));
+        }
+
+        function clearRoom(room) {
+            room.isOccupied = false;
+            room.occupants = 0;
+            renderRooms();
+            tg.sendData(JSON.stringify({ roomId: room.id, isOccupied: room.isOccupied, occupants: room.occupants }));
+        }
+
+        // Initial render
+        renderRooms();
+    </script>
+</body>
+</html>

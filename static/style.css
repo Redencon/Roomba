@@ -12,8 +12,8 @@
     --color-primary: #6678B9;
     --color-primary-dimmed: #374163;
     --color-secondary: #ED6A66;
-    --color-primary-light: #EAA09F;
-    --color-secondary-light: #949CB5;
+    --color-secondary-light: #EAA09F;
+    --color-primary-light: #949CB5;
     --color-tertiary: #FAB62F;
     --colot-tertiary-light: #F9CD7A;
     --color-warning: #914519;
@@ -30,6 +30,8 @@
     --xx-large-font: 2.5rem;
     --small-font: 0.8rem;
     --x-small-font: 0.6rem;
+
+    --bs-link-color: var(--color-primary);
 }
 
 body {
@@ -343,6 +345,11 @@ input {
         background-color: var(--color-primary-light);
         border-color: var(--color-primary-light);
     }
+
+    &:disabled {
+        background-color: var(--color-primary-dimmed);
+        border-color: var(--color-primary-dimmed);
+    }
 }
 
 .dropdown-toggle.btn {
@@ -370,4 +377,47 @@ input {
     cursor: pointer;
 }
 
+.nav-pills {
+    --bs-nav-pills-link-active-bg: var(--color-primary);
+}
 
+.side-button {
+    font-size: medium;
+
+    @media screen and (min-width: 768px) {
+        font-size: x-large;
+    }
+}
+
+.nav-link {
+    color: rgba(255, 255, 255, 0.8);
+
+    &:hover {
+        color: rgba(255, 255, 255, 1);
+    }
+}
+
+.gradient {
+    --move-speed: 30s;
+    width: 100%;
+    background: linear-gradient(90deg, var(--color-secondary), var(--color-tertiary), var(--color-primary), var(--color-secondary), var(--color-tertiary), var(--color-primary), var(--color-secondary));
+    background-size: 200%;
+    animation: shiftGradient var(--move-speed) linear infinite;
+  }
+
+  @keyframes shiftGradient {
+    from {
+      background-position: 0% 50%;
+    }
+    to {
+      background-position: 100% 50%;
+    }
+  }
+
+.gradient-fast{
+    --move-speed: 0.4s;
+}
+
+.Select-menu-outer {
+    display : block !important;
+}
