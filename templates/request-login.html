@@ -34,12 +34,20 @@
         <div class="form-floating">
             <div class="input-group mb-2">
               <input type="text" class="form-control" aria-describedby="validatedInputGroupPrepend" id="email" required placeholder="Email" name="email" style="height: 100%">
-              <span class="input-group-text" id="validatedInputGroupPrepend">@phystech.edu</span>
-            </div>
+              <select class="form-select" id="domain">
+                <option selected value="@phystech.edu">@phystech.edu</option>
+                <option value="@mipt.ru">@mipt.ru</option>
+              </select>
+            
+            
+              <!-- <span class="input-group-text" id="validatedInputGroupPrepend">@phystech.edu</span> -->
             </div>
         </div>
 
         <button class="button w-100 py-2 mb-4" type="submit">Запросить</button>
+        {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
       </form>
       <p>Уже есть пароль?<br><a href="/login">Введите его здесь.</a></p>
       <div id="buttonContainerId"></div>
@@ -75,17 +83,26 @@
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ token: token })
+            body: JSON.stringify({ 
+              token: token,
+              // Pass any next URL from the session if it exists
+              next: new URLSearchParams(window.location.search).get('next') || null
+            })
           })
           .then(response => response.json())
           .then(data => {
             if (data.status == "success") {
-              // Redirect to the main page or show a success message
-              window.location.href = '/';
+              // Redirect to the next URL or the main page
+              window.location.href = data.redirect_url || '/';
             } else {
               // Show an error message
-              document.getElementById('error-message').innerText = data.error;
-              document.getElementById('error-message').style.display = 'block';
+              const errorEl = document.getElementById('error-message') || document.createElement('div');
+              errorEl.id = 'error-message';
+              errorEl.className = 'alert alert-danger';
+              errorEl.innerText = data.message || 'Authentication failed';
+              if (!document.getElementById('error-message')) {
+                document.querySelector('form').prepend(errorEl);
+              }
             }
           })
         }

@@ -7,7 +7,7 @@ from hashlib import sha256
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
 import re
-from typing import Literal
+from typing import Literal, Optional
 from enum import Enum
 import traceback
 
@@ -31,6 +31,13 @@ class RoomType(Enum):
     chair = 2
     lab = 3
     computer = 4
+
+
+class UserType(Enum):
+    student = 0
+    admin = 1
+    mki = 2
+    teacher = 3
 
 WEEKDAYS = {
     1: "ПН",
@@ -65,6 +72,7 @@ class Passwords(db.Model):
     password_hash: Mapped[str]
     expiration_date: Mapped[datetime]
     used: Mapped[bool]
+    role: Mapped[UserType] = mapped_column(default=UserType.student)
 
 
 class Events(db.Model):
@@ -75,6 +83,11 @@ class Events(db.Model):
     time_start: Mapped[str]
     time_finish: Mapped[str]
     day: Mapped[int]
+    is_confirmed: Mapped[bool] = mapped_column(default=True)
+    contact_info: Mapped[str] = mapped_column(default="")
+    creation_time: Mapped[datetime] = mapped_column(default=datetime.now)
+    creator_token: Mapped[str] = mapped_column(default="")
+    is_special: Mapped[bool] = mapped_column(default=False)
 
 
 class Counter(db.Model):
@@ -100,14 +113,17 @@ def log_console(s):
 
 class DatabaseManager:
     EXPIRY_PERIOD = timedelta(days=5)
+    UNCONFIRMED_EXPIRY = timedelta(hours=24)
+    SPECIAL_EVENT_FUTURE_LIMIT = timedelta(weeks=2)
 
-    def __init__(self, app: Flask):
+    def __init__(self, app: Flask, require_auth: bool = True):
         self.db = db
         db.init_app(app)
         self.app = app
         with app.app_context():
             db.create_all()
         self.logf = log_console
+        self.require_auth = require_auth
 
     @staticmethod
     def event_temporary(event: Events):
@@ -167,7 +183,9 @@ class DatabaseManager:
         return False
 
     # SESSION VERIFICATION
-    def verify_password(self, password: str):
+    def verify_password(self, password: "str|None"):
+        if not self.require_auth:
+            return True
         if password is None:
             return False
         password_hash = sha256(password.encode()).hexdigest()
@@ -180,13 +198,26 @@ class DatabaseManager:
             return True
         return False
 
+    def check_role(self, password: "str|None", role: str):
+        if password is None:
+            return False
+        password_hash = sha256(password.encode()).hexdigest()
+        password_query = db.session.scalars(
+            select(Passwords)
+            .filter(Passwords.password_hash == password_hash)
+            .filter(Passwords.expiration_date > datetime.now())
+        ).one_or_none()
+        if not password_query:
+            return False
+        return password_query.role.name == role
+
     # REGISTRATION
-    def generate_password(self):
+    def generate_password(self, role: str = "student"):
         self.clear_expired_passwords()
         expiration_date = datetime.now() + self.EXPIRY_PERIOD
         password = token_urlsafe(6)
         password_hash = sha256(password.encode("utf-8")).hexdigest()
-        self.db.session.add(Passwords(password_hash=password_hash, expiration_date=expiration_date, used=False))
+        self.db.session.add(Passwords(password_hash=password_hash, expiration_date=expiration_date, used=False, role=role))
         self.db.session.commit()
         print(password)
         return password
@@ -212,6 +243,10 @@ class DatabaseManager:
 
     def get_all_rooms(self, building: str):
         res = self.db.session.scalars(select(Room.room).where(Room.building==building).distinct()).all()
+        return list(res)
+    
+    def get_all_rooms_obj(self, building: str):
+        res = self.db.session.scalars(select(Room).where(Room.building==building)).all()
         return list(res)
 
     def get_event_by_id(self, event_id: int):
@@ -343,7 +378,7 @@ class DatabaseManager:
         return events
     
     # ADMIN - CHECK ROOM
-    def check_room(self, building: str, room: str, date: str, time_start: str, time_finish: str, date_end:"str|None" = None, forever=False):
+    def check_room(self, building: str, room: str, date: str, time_start: str, time_finish: str, date_end: Optional[str] = None):
         day_dtt = datetime.strptime(date, '%Y-%m-%d')
         weekday = day_dtt.weekday() + 1
         all_events = db.session.scalars(
@@ -449,6 +484,67 @@ class DatabaseManager:
             status_description = desc
             status = "free"
         return status, status_description
+    
+    # ADMIN - SUBMIT REQUESTS
+    def add_event(
+        self, date: Optional[str], start: str, finish: str,
+        building: str, room: str, description: str,
+        date_stop: str
+    ):
+        check = self.check_room(
+            building, room, date, start, finish, date_stop
+        )
+        if check:
+            raise ValueError("Room is busy")
+        date_str = ""
+        if date:
+            date = datetime.strptime(date, "%Y-%m-%d").strftime("%d.%m")
+            date_str = date
+            if date_stop:
+                date_end = datetime.strptime(date_end, "%Y-%m-%d").strftime("%d.%m")
+                date_str += " - "+date_end
+        description=" ".join([description, date_str]).strip()
+        weekday = datetime.strptime(date, '%Y-%m-%d').weekday() + 1
+        event = Events(
+            time_start=start, time_finish=finish, day=weekday,
+            building=building, room=room, description=" ".join([description, date_str]),
+            is_confirmed=True,
+            contact_info="",
+            creator_token="",
+            is_special=False
+        )
+        db.session.add(event)
+        db.session.commit()
+        return event
+
+    def remove_event(self, event_id: int):
+        event = db.session.scalars(
+            select(Events)
+            .where(Events.id == event_id)
+        ).one()
+        db.session.delete(event)
+        db.session.commit()
+        return event
+
+    def update_event(self, event_id: int, start: str, finish: str, description: str):
+        event = db.session.scalars(
+            select(Events)
+            .where(Events.id == event_id)
+        ).one()
+        event.time_start = start
+        event.time_finish = finish
+        event.description = description
+        db.session.commit()
+        return event
+
+    def update_equipment_all(self, building: str, r_equipment: "dict[str, str]"):
+        rooms = db.session.scalars(
+            select(Room)
+            .where(Room.building == building)
+        ).all()
+        for room in rooms:
+            room.equipment = r_equipment[room.room]
+        db.session.commit()
 
     # CRON - UPDATE ROOMS STATUS
     def set_room_statuses(self):
@@ -457,15 +553,36 @@ class DatabaseManager:
         today = datetime.today().strftime("%Y-%m-%d")
         today_dtt = datetime.today()
         for room in rooms:
+            previous_status = room.status
             status, description = self.room_status(room.building, room.room, today, now.strftime('%H:%M'))
             if status == "free" and room.room_type.name != "seminar":
                 status = room.room_type.name
+            elif status == "free":
+                prev_description = room.status_description
+                components = prev_description.split("|")
+                if len(components) < 4:
+                    components = ["0", "0", "0", "0"]
+                components[3] = str(int(components[3]) - 1)
+                if int(components[3]) > 0:
+                    status = "marked"
+                    description = "|".join(components)
             room.status = status
             room.status_description = description
         db.session.commit()
 
     def get_room_statuses(self):
         return db.session.scalars(select(Room)).all()
+
+    # ROOMS - ROOM ID
+    def get_room_id(self, building: str, room: str):
+        room_id = db.session.scalars(
+            select(Room.id)
+            .where(Room.building == building)
+            .where(Room.room == room)
+        ).one_or_none()
+        if room_id is None:
+            raise ValueError("Room not found")
+        return room_id
 
     # ROOMS - CARD UPDATES - STATUS
     def get_room_status(self, building: str, room: str):
@@ -589,5 +706,185 @@ class DatabaseManager:
             (room.room, room.equipment.split(","))
             for room in rooms
         ]
-            
-        
+
+    def update_room(self, room_id: int, building: str, room: str, capacity: int, room_type: str, equipment: "list[str]", user_pwd: str):
+        if not self.check_role(user_pwd, "admin"):
+            raise ValueError("Unauthorized")
+        room = db.session.scalars(
+            select(Room)
+            .where(Room.id == room_id)
+        ).one()
+        room.building = building
+        room.room = room
+        room.capacity = capacity
+        room.room_type = room_type
+        room.equipment = ",".join(equipment)
+        db.session.commit()
+        return room
+
+    def get_room_by_id(self, room_id: int):
+        return db.session.scalars(
+            select(Room)
+            .where(Room.id == room_id)
+        ).one_or_none()
+
+    def get_uncertain_events(self):
+        """Get all unconfirmed events that haven't expired."""
+        now = datetime.now()
+        events = self.db.session.scalars(
+            select(Events)
+            .where(Events.is_confirmed == False)
+            .where(
+                (Events.is_special == True) |  # Special events don't expire
+                (Events.creation_time + self.UNCONFIRMED_EXPIRY > now)  # Regular unconfirmed events expire after 24h
+            )
+        ).all()
+        return events
+
+    def add_unconfirmed_event(
+        self, date: Optional[str], start: str, finish: str,
+        building: str, room: str, description: str,
+        contact_info: str, date_stop: Optional[str] = None,
+        is_special: bool = False
+    ):
+        """Add an unconfirmed event. Special handling for specific room requirements."""
+        # Validate special event constraints
+        if is_special:
+            if date_stop is not None:
+                raise ValueError("Special events cannot have multiple dates")
+            event_date = datetime.strptime(date, "%Y-%m-%d")
+            if event_date - datetime.now() > self.SPECIAL_EVENT_FUTURE_LIMIT:
+                raise ValueError("Special events cannot be created more than two weeks in advance")
+
+        # Generate a unique token for the event creator
+        creator_token = token_urlsafe(16)
+
+        # Check if room is available
+        check = self.check_room(building, room, date, start, finish, date_stop)
+        if check:
+            raise ValueError("Room is busy")
+
+        date_str = ""
+        if date:
+            date = datetime.strptime(date, "%Y-%m-%d").strftime("%d.%m")
+            date_str = date
+            if date_stop:
+                date_end = datetime.strptime(date_stop, "%Y-%m-%d").strftime("%d.%m")
+                date_str += " - "+date_end
+
+        description = " ".join([description, date_str]).strip()
+        weekday = datetime.strptime(date, '%Y-%m-%d').weekday() + 1
+
+        event = Events(
+            time_start=start,
+            time_finish=finish,
+            day=weekday,
+            building=building,
+            room=room,
+            description=description,
+            is_confirmed=False,
+            contact_info=contact_info,
+            creator_token=creator_token,
+            is_special=is_special
+        )
+        self.db.session.add(event)
+        self.db.session.commit()
+        return event, creator_token
+
+    def confirm_event(self, event_id: int):
+        """Confirm an unconfirmed event, making it permanent."""
+        event = self.db.session.scalars(
+            select(Events)
+            .where(Events.id == event_id)
+            .where(Events.is_confirmed == False)
+        ).one_or_none()
+
+        if not event:
+            raise ValueError("Event not found or already confirmed")
+
+        # Clear sensitive information and mark as confirmed
+        event.is_confirmed = True
+        event.contact_info = ""
+        event.creator_token = ""
+        self.db.session.commit()
+        return event
+
+    def deny_event(self, event_id: int):
+        """Deny and delete an unconfirmed event."""
+        event = self.db.session.scalars(
+            select(Events)
+            .where(Events.id == event_id)
+            .where(Events.is_confirmed == False)
+        ).one_or_none()
+
+        if not event:
+            raise ValueError("Event not found or already confirmed")
+
+        self.db.session.delete(event)
+        self.db.session.commit()
+
+    def get_event_by_creator(self, creator_token: str):
+        """Get all unconfirmed events created by a specific token."""
+        events = self.db.session.scalars(
+            select(Events)
+            .where(Events.creator_token == creator_token)
+            .where(Events.is_confirmed == False)
+        ).all()
+        return events
+
+    def cleanup_expired_events(self):
+        """Remove expired unconfirmed events (called periodically)."""
+        expiry_time = datetime.now() - self.UNCONFIRMED_EXPIRY
+        expired_events = self.db.session.scalars(
+            select(Events)
+            .where(Events.is_confirmed == False)
+            .where(Events.is_special == False)  # Don't auto-delete special events
+            .where(Events.creation_time < expiry_time)
+        ).all()
+
+        for event in expired_events:
+            self.db.session.delete(event)
+        self.db.session.commit()
+
+    def get_user_unconfirmed_events(self, token: str):
+        events = self.db.session.scalars(
+            select(Events)
+            .where(Events.creator_token == token)
+            .where(Events.is_confirmed == False)
+        ).all()
+        self.db.session.expunge_all()
+        return events
+    
+    def create_unconfirmed_event(
+        self,
+        building: str, room: str,
+        time_start: str, time_finish: str,
+        description: str, date: str,
+        participant_info: str,
+        contact_info: str,
+        comment: str,
+        token: str
+    ):
+        allowed = self.check_role(token, UserType.teacher.name)
+        if not allowed:
+            raise ValueError("Unauthorized")
+        date_str = datetime.strptime(date, "%Y-%m-%d").strftime("%d.%m")
+        description = " ".join([description, date_str]).strip()
+        weekday = datetime.strptime(date, '%Y-%m-%d').weekday() + 1
+        is_special = (building == 'КМО')
+        now = datetime.now()
+        event = Events(
+            time_start=time_start,
+            time_finish=time_finish,
+            day=weekday,
+            building=building,
+            room=room,
+            description=description,
+            is_confirmed=False,
+            contact_info=contact_info,
+            creation_time=now,
+            is_special=is_special
+        )
+        self.db.session.add(event)
+        self.db.session.commit()
+        return event

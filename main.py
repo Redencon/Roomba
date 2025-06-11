@@ -22,7 +22,8 @@ SEARCH_RESULT_LIMIT = 25
 GOOGLE = "https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
 application = Dash("Folegle", title="Folegle", server=server, external_stylesheets=[
     dbc.themes.BOOTSTRAP, GOOGLE, "static/style.css",
-    "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+    "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
+    "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates/dbc.min.css"
 ], use_pages=True)
 
 with open("keys/DEBUG") as f:
@@ -132,9 +133,9 @@ application.layout = html.Div([
         dbc.Collapse([
             dbc.Nav([
                 dbc.NavItem(dbc.NavLink("График", href="/", active="exact")),
-                dbc.NavItem(dbc.NavLink("Занятость", href="/rooms", active="exact")),
+                dbc.NavItem(dbc.NavLink("Сейчас", href="/rooms", active="exact")),
                 dbc.NavItem(dbc.NavLink("Подбор", href="/picker", active="exact")),
-                dbc.NavItem(dbc.NavLink(html.I(className="bi bi-heart-fill"), id="distraction-toggle"), class_name="d-none d-lg-block"),
+                dbc.NavItem(dbc.NavLink(html.I(className="bi bi-gear-fill"), href="/admin", active="exact"), class_name="d-none d-lg-block"),
             ], class_name="fw-bold me-5 me-md-1 align-self-end nav-underline", navbar=True, style={"gap": 0}),
         ], navbar=True, id="navbar-collapse", class_name="justify-content-end"),
     ]), dark=True, id="main-navbar", color="var(--color-primary)", expand="md"),
@@ -173,7 +174,8 @@ application.layout = html.Div([
     }),
     dcc.Location(id='redirect', refresh=True),
     html.Div(
-        page_container
+        page_container,
+        style={"margin-bottom": "3rem"}
     ),
     dbc.Offcanvas([
         dcc.Input(id="search-input", type="text", placeholder="Поиск...", debounce=True),
@@ -252,6 +254,18 @@ def update_navbar(pathname):
         return ""
     return "gradient"
 
+@server.before_request
+def before_request():
+    if request.host.startswith('www.') and not IS_DEBUG:
+        return redirect(f"{request.scheme}://folegle.ru{request.path}", code=301)
+    PAGES = ["/", "/admin", "/rooms", "/picker"]
+    if (("dash" in request.path or request.path in PAGES) and not dbm.verify_password(request.cookies.get('password'))):
+        dbm.counter_plus_one("unauthorized_dash_access")
+        # Store the original URL and query string
+        session['next'] = request.url
+        # Pass the next URL as a query parameter
+        return redirect(url_for('request_password', next=request.url), code=303)
+
 @server.route('/login', methods=['GET', 'POST'])
 @track_usage("login_page")
 def login():
@@ -259,15 +273,17 @@ def login():
         password = request.args.get('password')
         if dbm.check_password(password):
             session['password'] = password
-            response = redirect(url_for('/'))
+            response = redirect(session.get('next') or url_for('/'))
             response.set_cookie('password', password, max_age=60*60*24)  # Store password in cookies for 30 days
+            session.pop('next', None)  # Clear the stored URL
             return response
     if request.method == 'POST':
         password = request.form.get('password')
         if dbm.check_password(password):
             session['password'] = password
-            response = redirect(url_for('/'))
+            response = redirect(session.get('next') or url_for('/'))
             response.set_cookie('password', password, max_age=60*60*24)  # Store password in cookies for 30 days
+            session.pop('next', None)  # Clear the stored URL
             return response
         return render_template('login.html', error="Неверный пароль. Попробуйте ещё раз.")
     return render_template('login.html')
@@ -275,18 +291,27 @@ def login():
 @server.route('/request-password', methods=['GET', 'POST'])
 @track_usage("request_password_page")
 def request_password():
+    # Store the next URL from query parameters if it exists
+    next_url = request.args.get('next')
+    if next_url and 'next' not in session:
+        session['next'] = next_url
+
     if request.method == 'POST':
         address = request.form.get('email')
         if address:
             if "@" in address:
                 return render_template("request-login.html", error="Неверный формат. Напишите только часть до @.")
-            
+            domain = request.form.get('domain', "@phystech.edu")
             password = dbm.generate_password()
-            proper_address = address+"@phystech.edu"
-            send_email(proper_address, password)
+            proper_address = address+domain
+            try:
+                send_email(proper_address, password)
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"Failed to send email: {traceback.format_exc()}"})
             
             session['last_request'] = dtt.datetime.now()
             return redirect(url_for('login'))
+        
         data = request.json
         token = data.get('token')
         try:
@@ -298,17 +323,35 @@ def request_password():
                 
                 if rqt_response.status_code != 200:
                     return jsonify({"status": "error", "message": f"Failed to retrieve user information, {rqt_response.reason}"})
+                
                 user_info = rqt_response.json()
                 email = user_info.get('default_email')
                 
                 # Check the domain of the email
                 if not email or not email.endswith('@phystech.edu'):
                     return jsonify({"status": "error", "message": f"Invalid email domain: {email}. Please use a phystech.edu email address"})
-                    # Authenticate the user and create a session
+                
+                # Authenticate the user and create a session
                 password = dbm.generate_password()
-                response = jsonify({"status": "success"})
-                response.set_cookie('password', password, max_age=60*60*24)  # Store password in cookies for 30 days
+                
+                # Set up the authentication and redirection
+                session['password'] = password
+                redirect_url = session.get('next') or '/'
+                
+                # Create the response with redirect information
+                response = jsonify({
+                    "status": "success", 
+                    "redirect_url": redirect_url
+                })
+                
+                # Store password in cookies
+                response.set_cookie('password', password, max_age=60*60*24)
+                
+                # Clear the stored URL from session
+                session.pop('next', None)
+                
                 return response
+                
             if 'last_request' in session:
                 last_request = session['last_request']
                 now = dtt.datetime.now(tz=last_request.tzinfo)
@@ -316,7 +359,9 @@ def request_password():
                     return render_template("request-login.html", error="Слишком много запросов. Попробуйте позже.")
         except Exception as e:
             return jsonify({"status": "error", "message": traceback.format_exc()})
-    return render_template('request-login.html')
+    
+    # Pass the next URL to the template if available
+    return render_template('request-login.html', next=session.get('next'))
 
 @server.route('/oauth')
 @track_usage("oauth_page")
@@ -332,14 +377,6 @@ def index():
     if dbm.verify_password(request.cookies.get('password')) or IS_DEBUG:
         return application.index()
     return redirect(url_for('request_password'))
-
-@server.before_request
-def before_request():
-    if request.host.startswith('www.') and not IS_DEBUG:
-        return redirect(f"{request.scheme}://folegle.ru{request.path}", code=301)
-    if (("dash" in request.path or request.path == "/" or request.path == "/rooms") and not dbm.verify_password(request.cookies.get('password'))):
-        dbm.counter_plus_one("unauthorized_dash_access")
-        return redirect(url_for('request_password'))
 
 @server.route('/check_events')
 @track_usage("check_events_request")
@@ -361,6 +398,28 @@ def get_counters():
         return redirect(url_for('request_password'))
     counters = dbm.get_all_counters()
     return jsonify({"status": "success", "counters": {k: v for k, v in counters}})
+
+
+@server.route('/room_links')
+@track_usage("room_links_request")
+def room_links():
+    try:
+        building = request.args.get('building', 'ГК')
+        if not dbm.verify_password(request.cookies.get('password')) and not IS_DEBUG:
+            return redirect(url_for('request_password'))
+        rooms = dbm.get_all_rooms_obj(building=building)
+        return jsonify({
+            "status": "success",
+            "rooms": [
+                {
+                    "id": room.id,
+                    "name": room.room+" "+room.building,
+                    "link": f"folegle.ru/rooms?room={room.id}",
+                } for room in rooms
+            ]
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(traceback.format_exc())})
 
 
 # Run the app

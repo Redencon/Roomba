@@ -1,6 +1,6 @@
 import pandas as pd
 
-data = pd.read_excel('data/schedule.xlsx', header=None)
+data = pd.read_excel('data/schedule2.xlsx', header=None)
 current_day = data.iloc[0, 1]
 weekdays = {}
 cur_start = 1

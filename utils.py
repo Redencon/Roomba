@@ -5,14 +5,16 @@ import diskcache as dc
 import traceback
 from dash import html
 
+REQUIRE_AUTH = False  # Set to False to disable authentication
+
 BUILDINGS = [
-    'ГК', 'ЛК', 'Квант', 'КПМ', 'Цифра', 'Арктика', 'БК', 'УПМ', 'КМО'
+    'ГК', 'ЛК', 'Квант', 'КПМ', 'Цифра', 'Арктика', 'БК', 'УПМ', "Семь", 'КМО'
 ]
 
 BUILDINGS_EN = {
     'ГК': 'GK', 'ЛК': 'LK', 'Квант': 'Quant', 'КПМ': 'KPM',
     'Цифра': 'Cifra', 'Арктика': 'Arktika', 'БК': 'BK', 'УПМ': 'UPM',
-    'КМО': 'KMO'
+    "Семь": "Seven", 'КМО': 'KMO'
 }
 
 BUILDING_PALETTES = {
@@ -24,6 +26,7 @@ BUILDING_PALETTES = {
     'Арктика': ["#8C7EB8", "#AB9AE0", "#675D87"],
     'БК': ["#87B145", "#A6D854", "#678734"],
     'УПМ': ["#AF447F", "#E057A2", "#7F315C"],
+    'Семь': ["#41424C", "#999999", "#1C1D28"],
     'КМО': ["#F47742", "#FF9C75", "#B55830"],
     'Roomba': ["#6678B9", "#ED6A66", "#FAB62F"]
 }
@@ -32,7 +35,7 @@ BUILDING_SECTIONS = {
     "all": ['ГК', 'ЛК', 'Квант', 'КПМ', 'Цифра', 'Арктика', 'БК', 'УПМ', 'КМО'],
     "boat": ["КПМ", "ЛК"],
     "ulk": ["Арктика", "Цифра"],
-    "prof": ["УПМ", "БК"],
+    "prof": ["УПМ", "БК", "Семь"],
 }
 
 BUILDING_NAVIGATION = [
@@ -45,15 +48,19 @@ BUILDING_NAVIGATION = [
     {"label": "УЛК", "value": "ulk", "style": {"color": "white", "font-weight": "800", "background-image": "linear-gradient(130deg, #8C7EB8, #B43D3E)"}},
     {"label": "Арктика", "value": "Арктика", "style": {"color": "#8C7EB8", "font-weight": "800", "padding-left": "2.5rem"}},
     {"label": "Цифра", "value": "Цифра", "style": {"color": "#B43D3E", "font-weight": "800", "padding-left": "2.5rem"}},
-    {"label": "УПМ+БК", "value": "prof", "style": {"color": "white", "font-weight": "800", "background-image": "linear-gradient(130deg, #AF447F, #87B145)"}},
+    {"label": "УПМ+БК+7", "value": "prof", "style": {"color": "white", "font-weight": "800", "background-image": "linear-gradient(130deg, #AF447F, #87B145, #41424C)"}},
     {"label": "УПМ", "value": "УПМ", "style": {"color": "#AF447F", "font-weight": "800", "padding-left": "2.5rem"}},
     {"label": "БК", "value": "БК", "style": {"color": "#87B145", "font-weight": "800", "padding-left": "2.5rem"}},
+    {"label": "Семь", "value": "Семь", "style": {"color": "#41424C", "font-weight": "800", "padding-left": "2.5rem"}},
     {"label": "КМО", "value": "КМО", "style": {"color": "#F47742", "font-weight": "800"}},
 ]
 
 EQUIPMENT_OPTIONS = [
-    "Маркерная доска", "Меловая доска", "Электронная доска", "Проектор", "Компьютер", "Кондиционер",
+    "Маркерная доска", "Меловая доска", "Электронная доска", "Проектор", "Мультимедийная трибуна"
 ]
+
+D_BLOCK = {"display": "block"}
+D_NONE = {"display": "none"}
 
 def log(func):
     @wraps(func)
@@ -74,7 +81,7 @@ with open("keys/SQL") as f:
 server.config['SQLALCHEMY_DATABASE_URI'] = sql_url
 server.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 server.secret_key = "MyNameIsNotDiana"
-dbm = DatabaseManager(server)
+dbm = DatabaseManager(server, require_auth=REQUIRE_AUTH)
 
 
 def building_span(building, addition=""):
